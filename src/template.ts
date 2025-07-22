@@ -2,7 +2,7 @@ import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 import Database from 'better-sqlite3';
 import { eq } from 'drizzle-orm';
-import { runMigrations } from './migrate.js';
+import { runMigrations } from './database/migrate.js';
 
 // Define schema
 const users = sqliteTable('users', {

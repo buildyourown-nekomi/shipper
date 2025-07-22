@@ -4,11 +4,11 @@
 <!-- [![Build Status](https://img.shields.io/github/actions/workflow/status/yourusername/shipper/ci.yml)](https://github.com/yourusername/shipper/actions)
 [![Latest Version](https://img.shields.io/npm/v/shipper-cli)](https://www.npmjs.com/package/shipper-cli) -->
 
-Shipper is a powerful and intuitive container engine designed to streamline the packaging, distribution, and execution of your applications. Inspired by the efficiency and precision of global logistics, Shipper provides a robust platform for building, managing, and running isolated environments.
+Shipper is a powerful and intuitive crate engine designed to streamline the packaging, distribution, and execution of your applications. Inspired by the efficiency and precision of global logistics, Shipper provides a robust platform for building, managing, and running isolated environments.
 
 ## Features
 
-- 🚀 **Declarative Configuration**: Define your containers with simple, intuitive `Shipperfile` syntax
+- 🚀 **Declarative Configuration**: Define your crates with simple, intuitive `Shipperfile` syntax
 - ⚡ **Lightning Fast**: Optimized build and runtime performance
 - 🔒 **Secure by Default**: Built-in security best practices
 - 🌐 **Multi-Platform**: Build for multiple architectures from a single configuration
@@ -20,13 +20,11 @@ Shipper is a powerful and intuitive container engine designed to streamline the 
 ### Prerequisites
 - Node.js 16+
 - Python 3.8+
-- Docker CLI (for container operations)
+- Docker CLI (for crate operations)
 
 ### Installation
 ```bash
 npm install -g shipper-cli
-# or
-pip install shipper-engine
 ```
 
 ### Create a Shipperfile
@@ -43,7 +41,7 @@ services:
 
 ### Build and Run
 ```bash
-# Build your container
+# Build your crate
 shipper build
 
 # Run your application

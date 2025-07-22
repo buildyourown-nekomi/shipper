@@ -2,13 +2,13 @@
 # Define how to build and run your crate
 
 build_context:
-  base_package: "ubuntu:24.04"
+  base_image: "debian"
   work_directory: "/app"
 
 build_steps:
-  - action: copy_files
-    source: "./src"
-    destination: "/app"
+  # - action: copy_files
+  #   source: "./src"
+  #   destination: "/app"
 
   - action: execute_command
     description: "Update package lists and install python"
@@ -24,7 +24,7 @@ crate_config:
   expose_ports: [8000, 8080]
   environment_variables:
     APP_DEBUG: "true"
-    PORT: 8000
+    PORT: "8000"
 
 # runtime_entrypoint: ["python3"]
 runtime_command: ["python3", "-m", "http.server", "8000"]

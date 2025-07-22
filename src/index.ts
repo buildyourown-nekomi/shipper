@@ -1,106 +1,23 @@
-#!/usr/bin/env node
-
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import * as fs from 'fs';
-import { execSync } from 'child_process';
-import { parse } from 'yaml';
+import load_env from 'dotenv';
+load_env.config();
 
-// Type definitions for command arguments
-interface DeployOptions {
-  env: 'dev' | 'staging' | 'production';
-  'dry-run': boolean;
-  workingDirectory: string;
-}
-
-interface BuildOptions {
-  watch: boolean;
-  production: boolean;
-  workingDirectory: string;
-}
-
-interface ConfigOptions {
-  key?: string;
-  value?: string;
-  list: boolean;
-  reset: boolean;
-}
-
-interface ListOptions {
-  type: 'container' | 'images';
-  all: boolean;
-}
-
-const execute = (command: 'build' | 'deploy', options: BuildOptions | DeployOptions) => {
-  if (options.workingDirectory) {
-    process.chdir(options.workingDirectory);
-  }
-
-  if (!fs.existsSync('Shipperfile.yml')) {
-    console.error('Error: Shipperfile.yml not found.');
-    console.error('Please run "shipper init" to create a new Shipperfile.yml.');
-    process.exit(1);
-  }
-
-  const shipperfile = fs.readFileSync('Shipperfile.yml', 'utf8');
-  const config = parse(shipperfile);
-
-  const steps = config[command];
-  if (!steps) {
-    console.error(`Error: No "${command}" configuration found in Shipperfile.yml.`);
-    process.exit(1);
-  }
-
-  console.log(`Executing "${command}" steps...`);
-
-  if (steps.commands) {
-    for (const cmd of steps.commands) {
-      console.log(`$ ${cmd}`);
-      try {
-        execSync(cmd, { stdio: 'inherit' });
-      } catch (error) {
-        console.error(`Error executing command: ${cmd}`);
-        process.exit(1);
-      }
-    }
-  }
-
-  if (command === 'deploy' && steps.cmd) {
-    const cmd = `${steps.cmd} ${steps.args.join(' ')}`;
-    console.log(`$ ${cmd}`);
-    try {
-      execSync(cmd, { stdio: 'inherit' });
-    } catch (error) {
-      console.error(`Error executing command: ${cmd}`);
-      process.exit(1);
-    }
-  }
-
-  console.log(`✅ ${command} completed.`);
-};
-
-const config = async (options: ConfigOptions) => {
-  console.log('Configuring project...');
-  console.log('Options:', options);
-  console.log('✅ Configuration updated (dummy)');
-};
-
-const list = async (options: ListOptions) => {
-  console.log(`Listing ${options.type}...`);
-  if (options.all) {
-    console.log('All items would be listed here');
-  } else {
-    console.log(`Items of type ${options.type} would be listed here`);
-  }
-};
+// Import handler functions from their respective modules
+import { buildHandler } from './handlers/build.js';
+import { deployHandler } from './handlers/deploy.js';
+import { configHandler } from './handlers/config.js';
+import { listHandler } from './handlers/list.js';
+import { removeImageHandler, removeContainerHandler } from './handlers/remove.js';
 
 // CLI setup
 const argv = yargs(hideBin(process.argv))
   .scriptName('shipper')
   .usage('Usage: $0 <command> [options]')
   .command(
-    'deploy',
-    'Deploy the project',
+    ['deploy', 'up'],
+    'Deploy the project (alias: up)',
     (yargs) => {
       return yargs
         .option('env', {
@@ -118,9 +35,15 @@ const argv = yargs(hideBin(process.argv))
         .option('workingDirectory', {
           type: 'string',
           description: 'Working directory for deployment'
+        })
+        .option('name', {
+          alias: 'n',
+          type: 'string',
+          description: 'Name of the deployment',
+          demandOption: true
         });
     },
-    (argv) => execute('deploy', argv as any)
+    (argv) => deployHandler(argv as any)
   )
   .command(
     'build',
@@ -142,9 +65,15 @@ const argv = yargs(hideBin(process.argv))
         .option('workingDirectory', {
           type: 'string',
           description: 'Working directory for build'
+        })
+        .option('name', {
+          alias: 'n',
+          type: 'string',
+          description: 'Name of the build',
+          demandOption: true
         });
     },
-    (argv) => execute('build', argv as any)
+    (argv) => buildHandler(argv as any)
   )
   .command(
     'config [key] [value]',
@@ -171,18 +100,18 @@ const argv = yargs(hideBin(process.argv))
           default: false
         });
     },
-    (argv) => config(argv as any)
+    (argv) => configHandler(argv as any)
   )
   .command(
     'list [type]',
-    'List containers or images',
+    'List crates or images',
     (yargs) => {
       return yargs
         .positional('type', {
           describe: 'Type of items to list',
           type: 'string',
-          choices: ['container', 'images'] as const,
-          default: 'container'
+          choices: ['crate', 'images'] as const,
+          default: 'crate'
         })
         .option('all', {
           alias: 'a',
@@ -191,7 +120,7 @@ const argv = yargs(hideBin(process.argv))
           default: false
         });
     },
-    (argv) => list(argv as any)
+    (argv) => listHandler(argv as any)
   )
   .command(
     'init',
@@ -221,6 +150,50 @@ const argv = yargs(hideBin(process.argv))
       
       console.log('✅ Shipperfile.yml created successfully.');
     }
+  )
+  .command(
+    'remove-image <name>',
+    'Remove a Shipper image',
+    (yargs) => {
+      return yargs
+        .positional('name', {
+          describe: 'Name of the image to remove',
+          type: 'string',
+          demandOption: true
+        })
+        .option('force', {
+          alias: 'f',
+          type: 'boolean',
+          description: 'Force removal of the image',
+          default: false
+        });
+    },
+    (argv) => removeImageHandler(argv as any)
+  )
+  .command(
+    'remove-crate <name>',
+    'Remove a Shipper crate',
+    (yargs) => {
+      return yargs
+        .positional('name', {
+          describe: 'Name of the crate to remove',
+          type: 'string',
+          demandOption: true
+        })
+        .option('force', {
+          alias: 'f',
+          type: 'boolean',
+          description: 'Force removal of the crate',
+          default: false
+        })
+        .option('recursive', {
+          alias: 'r',
+          type: 'boolean',
+          description: 'Recursively remove crate and its contents',
+          default: false
+        });
+    },
+    (argv) => removeContainerHandler(argv as any)
   )
   .option('verbose', {
     alias: 'v',

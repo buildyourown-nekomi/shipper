@@ -1,5 +1,6 @@
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import Database from 'better-sqlite3';
+import fs from 'fs';
 
 // Initialize database
 const sqlite = new Database('database.db');
@@ -9,15 +10,12 @@ const db = drizzle(sqlite);
 export async function runMigrations() {
   console.log('Running migrations...');
   
+  const migratesql = fs.readFileSync('src/database/migrate.sql', 'utf8');
+
+  console.log(migratesql);
+
   // Create users table if it doesn't exist
-  sqlite.exec(`
-    CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      email TEXT NOT NULL UNIQUE,
-      created_at INTEGER NOT NULL
-    )
-  `);
+  sqlite.exec(migratesql);
   
   console.log('Migrations completed successfully');
 }

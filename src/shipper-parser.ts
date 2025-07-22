@@ -1,6 +1,6 @@
 /**
  * Shipperfile Parser
- * Parses YAML configuration files for container build and runtime configuration
+ * Parses YAML configuration files for crate build and runtime configuration
  */
 
 import { parse } from 'yaml';
@@ -24,7 +24,7 @@ export interface BuildStep {
   fail_on_error?: boolean;
 }
 
-export interface ContainerConfig {
+export interface CrateConfig {
   expose_ports: number[];
   environment_variables: Record<string, string>;
 }
@@ -32,7 +32,7 @@ export interface ContainerConfig {
 export interface ShipperConfig {
   build_context: BuildContext;
   build_steps: BuildStep[];
-  container_config: ContainerConfig;
+  crate_config: CrateConfig;
   runtime_entrypoint?: string[];
   runtime_command?: string[];
 }
@@ -100,7 +100,7 @@ export class ShipperParser {
     const config: ShipperConfig = {
       build_context: this.validateBuildContext(raw.build_context),
       build_steps: this.validateBuildSteps(raw.build_steps),
-      container_config: this.validateContainerConfig(raw.container_config),
+      crate_config: this.validateCrateConfig(raw.crate_config),
     };
 
     // Optional fields
@@ -208,24 +208,24 @@ export class ShipperParser {
     return step;
   }
 
-  private static validateContainerConfig(raw: any): ContainerConfig {
+  private static validateCrateConfig(raw: any): CrateConfig {
     if (!raw || typeof raw !== 'object') {
-      throw new ShipperParserError('container_config must be an object');
+      throw new ShipperParserError('crate_config must be an object');
     }
 
-    const config: ContainerConfig = {
+    const config: CrateConfig = {
       expose_ports: [],
       environment_variables: {},
     };
 
     if (raw.expose_ports !== undefined) {
       if (!Array.isArray(raw.expose_ports)) {
-        throw new ShipperParserError('container_config.expose_ports must be an array');
+        throw new ShipperParserError('crate_config.expose_ports must be an array');
       }
       config.expose_ports = raw.expose_ports.map((port: any, index: number) => {
         if (typeof port !== 'number' || !Number.isInteger(port) || port < 1 || port > 65535) {
           throw new ShipperParserError(
-            `container_config.expose_ports[${index}] must be an integer between 1 and 65535`
+            `crate_config.expose_ports[${index}] must be an integer between 1 and 65535`
           );
         }
         return port;
@@ -234,13 +234,13 @@ export class ShipperParser {
 
     if (raw.environment_variables !== undefined) {
       if (!raw.environment_variables || typeof raw.environment_variables !== 'object') {
-        throw new ShipperParserError('container_config.environment_variables must be an object');
+        throw new ShipperParserError('crate_config.environment_variables must be an object');
       }
       
       for (const [key, value] of Object.entries(raw.environment_variables)) {
         if (typeof value !== 'string') {
           throw new ShipperParserError(
-            `container_config.environment_variables.${key} must be a string`
+            `crate_config.environment_variables.${key} must be a string`
           );
         }
         config.environment_variables[key] = value;

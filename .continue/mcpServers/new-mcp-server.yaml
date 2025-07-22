@@ -1,0 +1,15 @@
+name: MCP Servers
+version: 0.0.1
+schema: v1
+mcpServers:
+  - name: context7
+    command: npx
+    args:
+      - -y
+      - "@upstash/context7-mcp"
+    env: {}
+  - name: ddg-search
+    command: uvx
+    args:
+      - duckduckgo-mcp-server
+    env: {}
