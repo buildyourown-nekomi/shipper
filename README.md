@@ -1,4 +1,4 @@
-# Shipper - The Lightweight Container Engine for Hackers
+# Shipper - The Lightweight Container Engine
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
@@ -29,7 +29,6 @@ No cgroups. No kernel modules. Just you and the system.
 - 🧱 **Custom syntax** via `Shipperfile`
 - 🧊 **Zero overhead** – no daemons, no idle RAM usage
 - 🛠️ **Designed for VPS & low-resource systems**
-- 🧠 **Hackable by design** – you can read the whole codebase
 
 ---
 
@@ -81,7 +80,6 @@ It feels like Docker, but runs like native.
 - CI sandboxing
 - Local experiments
 - Embedded systems
-- Hackers who want full control
 
 ---
 
