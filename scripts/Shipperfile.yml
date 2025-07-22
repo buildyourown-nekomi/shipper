@@ -1,0 +1,30 @@
+# Shipperfile
+# Define how to build and run your crate
+
+build_context:
+  base_package: "ubuntu:24.04"
+  work_directory: "/app"
+
+build_steps:
+  - action: copy_files
+    source: "./src"
+    destination: "/app"
+
+  - action: execute_command
+    description: "Update package lists and install python"
+    command: ["apt-get", "update", "-y"]
+    # You could add options like 'shell: true' if you want a shell context
+    # or 'fail_on_error: true' for explicit error handling
+
+  - action: execute_command
+    description: "Install Python pip"
+    command: ["apt-get", "install", "-y", "python3-pip"]
+
+crate_config:
+  expose_ports: [8000, 8080]
+  environment_variables:
+    APP_DEBUG: "true"
+    PORT: 8000
+
+# runtime_entrypoint: ["python3"]
+runtime_command: ["python3", "-m", "http.server", "8000"]
