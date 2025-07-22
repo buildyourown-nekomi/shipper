@@ -1,64 +1,115 @@
-# Shipper - The Intelligent Container Engine
+# Shipper - The Lightweight Container Engine for Hackers
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-<!-- [![Build Status](https://img.shields.io/github/actions/workflow/status/yourusername/shipper/ci.yml)](https://github.com/yourusername/shipper/actions)
-[![Latest Version](https://img.shields.io/npm/v/shipper-cli)](https://www.npmjs.com/package/shipper-cli) -->
 
-Shipper is a powerful and intuitive crate engine designed to streamline the packaging, distribution, and execution of your applications. Inspired by the efficiency and precision of global logistics, Shipper provides a robust platform for building, managing, and running isolated environments.
+**Shipper** is a minimalist container engine built from scratch.  
+No daemons. No virtualization modules. No overhead.
 
-## Features
-
-- 🚀 **Declarative Configuration**: Define your crates with simple, intuitive `Shipperfile` syntax
-- ⚡ **Lightning Fast**: Optimized build and runtime performance
-- 🔒 **Secure by Default**: Built-in security best practices
-- 🌐 **Multi-Platform**: Build for multiple architectures from a single configuration
-- 📦 **Dependency Management**: Automatic handling of dependencies and environments
-- 🔄 **CI/CD Ready**: Seamless integration with popular CI/CD pipelines
-
-## Quick Start
-
-### Prerequisites
-- Node.js 16+
-- Python 3.8+
-- Docker CLI (for crate operations)
-
-### Installation
-```bash
-npm install -g shipper-cli
-```
-
-### Create a Shipperfile
-```yaml
-# Shipperfile.yml
-version: '1.0'
-image: node:16-alpine
-services:
-  web:
-    command: npm start
-    ports:
-      - "3000:3000"
-```
-
-### Build and Run
-```bash
-# Build your crate
-shipper build
-
-# Run your application
-shipper up
-```
-
-## Documentation
-
-[Full Documentation](docs/) | [API Reference](docs/api.md) | [Examples](examples/)
-
-## Contributing
-
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
-
-## License
-
-Shipper is [Apache 2.0 licensed](LICENSE).
+Run multiple isolated apps on a single VPS with zero conflict and near-zero cost.
 
 ---
-*"Command your applications with Shipper – where every build is a precise cargo, and every deployment sails smoothly to its destination."*
+
+## ✨ Philosophy
+
+> Build your own tools. Run them your way.
+
+Shipper isn't here to replace Docker.  
+It's for devs who want to understand everything they run — down to the filesystem.
+
+Every **crate** is a portable, isolated root filesystem.  
+Every **ship** is a live process.  
+No cgroups. No kernel modules. Just you and the system.
+
+---
+
+## 🚀 Features
+
+- ⚡ **Ultra-fast** builds and execution (<100ms startup)
+- 📦 **No dependency conflicts** – each app has its own rootfs
+- 🧱 **Custom syntax** via `Shipperfile`
+- 🧊 **Zero overhead** – no daemons, no idle RAM usage
+- 🛠️ **Designed for VPS & low-resource systems**
+- 🧠 **Hackable by design** – you can read the whole codebase
+
+---
+
+## 📦 Shipperfile Example
+
+```yaml
+# Shipperfile
+build_context:
+  base_image: "debian"
+  work_directory: "/app"
+
+build_steps:
+  - action: execute_command
+    description: "Update apt"
+    command: ["apt-get", "update", "-y"]
+
+  - action: execute_command
+    description: "Install Python pip"
+    command: ["apt-get", "install", "-y", "python3-pip"]
+
+crate_config:
+  expose_ports: [8000]
+  environment_variables:
+    PORT: "8000"
+
+runtime_command: ["python3", "-m", "http.server", "8000"]
+```
+
+---
+
+## ⚙️ Usage
+
+```bash
+# Build the crate from Shipperfile
+shipper build
+
+# Run the container (a.k.a. ship)
+shipper run
+```
+
+Each ship runs in its own environment using OverlayFS and `proot`.  
+It feels like Docker, but runs like native.
+
+---
+
+## 💡 Ideal For
+
+- Personal VPS hosting
+- CI sandboxing
+- Local experiments
+- Embedded systems
+- Hackers who want full control
+
+---
+
+## 🧠 Requirements
+
+- Linux with OverlayFS support
+- No Docker required. No kernel modules.
+
+---
+
+## 📖 Documentation
+
+- [docs/](docs/)
+- [examples/](examples/)
+
+---
+
+## 🤝 Contributing
+
+This project is mostly built for personal use — but PRs are welcome if they align with the minimalist philosophy.
+
+---
+
+## 📄 License
+
+Licensed under the [Apache 2.0 License](LICENSE)
+
+---
+
+> “When you build it yourself, you control everything.”  
+> — Shipper
