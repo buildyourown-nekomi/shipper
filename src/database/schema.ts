@@ -36,5 +36,5 @@ export const keelanShips = sqliteTable('keelan_ships', {
     startedAt: text('started_at'),
     stoppedAt: text('stopped_at'),
     exitCode: integer('exit_code'),
-    processId: integer('process_id')
+    processId: integer('process_id'),
 });

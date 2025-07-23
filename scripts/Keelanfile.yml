@@ -11,14 +11,20 @@ build_steps:
     destination: "/app"
 
   - action: execute_command
-    description: "Update package lists and install python"
+    description: "Update apt"
     command: ["apt-get", "update", "-y"]
-    # You could add options like 'shell: true' if you want a shell context
-    # or 'fail_on_error: true' for explicit error handling
-
-  # - action: execute_command
-  #   description: "Install Python pip"
-  #   command: ["apt-get", "install", "-y", "python3-pip"]
+  
+  - action: execute_command
+    description: "Install Python3"
+    command: ["apt-get", "install", "-y", "python3"]
+    
+  - action: execute_command
+    description: "Install Python pip (optional)"
+    command: ["apt-get", "install", "-y", "python3-pip"]
+    
+  - action: execute_command
+    description: "Install Python pip"
+    command: ["apt-get", "install", "-y", "python3-pip"]
 
 crate_config:
   expose_ports: [8000, 8080]

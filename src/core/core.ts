@@ -187,10 +187,10 @@ export async function removeGzipCrate(name: string, options: { force?: boolean }
     }
 }
 
-export async function removeShip(name: string, options: { force?: boolean; recursive?: boolean } = {}): Promise<void> {
+export async function removeShip(shipID: string, options: { force?: boolean; recursive?: boolean } = {}): Promise<void> {
     try {
         // Remove the directory of the image
-        const cratePath = `${process.env.BASE_DIRECTORY}/crates/${name}`;
+        const cratePath = `${process.env.BASE_DIRECTORY}/ships/${shipID}`;
         const workcratePath = `${cratePath}_work`;
         const mergecratePath = `${cratePath}_merge`;
         unmountCrate(mergecratePath);
@@ -205,8 +205,8 @@ export async function removeShip(name: string, options: { force?: boolean; recur
         console.log(chalk.green(`✅ Successfully removed ship: ${cratePath}`));
     } catch (err: any) {
         if (!options.force) {
-            throw new Error(`❌ Failed to remove crate ${name}: ${err instanceof Error ? err.message : String(err)}`);
+            throw new Error(`❌ Failed to remove crate ${shipID}: ${err instanceof Error ? err.message : String(err)}`);
         }
-        console.warn(`⚠️  Force removal of crate ${name} despite error:`, err instanceof Error ? err.message : String(err));
+        console.warn(`⚠️  Force removal of crate ${shipID} despite error:`, err instanceof Error ? err.message : String(err));
     }
 }

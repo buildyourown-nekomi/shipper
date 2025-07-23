@@ -1,7 +1,7 @@
 import { checkName, removeCrate, removeGzipCrate, removeShip } from '../core/core.js';
 import chalk from 'chalk';
 import { db } from '../database/db.js';
-import { keelanCrate, keelanFiles } from '../database/schema.js';
+import { keelanCrate, keelanFiles, keelanShips } from '../database/schema.js';
 import { eq } from 'drizzle-orm';
 
 // Type definitions for command arguments
@@ -41,8 +41,8 @@ export const removeShipHandler = async (options: RemoveOptions & { name: string 
   const { name, force, recursive } = options;
   try {
     await removeShip(name, { force, recursive });
-    await db.delete(keelanFiles)
-      .where(eq(keelanFiles.name, name))
+    await db.delete(keelanShips)
+      .where(eq(keelanShips.name, name))
       .execute();
     console.log(chalk.green(`✅ Ship '${name}' removed successfully.`));
   } catch (error) {

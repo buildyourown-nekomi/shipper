@@ -2,13 +2,12 @@ import { db } from "../database/db.js";
 import { eq } from "drizzle-orm";
 import { keelanCrate } from "../database/schema.js";
 
-export async function resolveLayer(name: string, layers: string[] = []): Promise<string[]> {
+export async function resolveLayer(name: string): Promise<string[]> {
     
     // Query the database for the layer
     if (name == "debian") {
         // Default image, return the name
-        layers.push(name);
-        return layers;
+        return [name];
     }
 
     // Query the database for the layer
@@ -16,13 +15,17 @@ export async function resolveLayer(name: string, layers: string[] = []): Promise
         eq(keelanCrate.name, name)
     ).limit(1);
     
-    if (!result) {
+    if (!result || result.length === 0) {
         throw new Error(`Layer ${name} not found`);
     }
     
-    // Recursively resolve the layer
-    layers.push(name);
-    layers.push(...(await resolveLayer(result[0].baseImage, layers)));
-
-    return layers;
+    // Recursively resolve the base layer
+    const baseLayers = await resolveLayer(result[0].baseImage);
+    
+    // Check if the current layer is already in the base layers to prevent duplicates
+    if (!baseLayers.includes(name)) {
+        baseLayers.unshift(name);
+    }
+    
+    return baseLayers;
 }

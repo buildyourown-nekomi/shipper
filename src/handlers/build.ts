@@ -11,6 +11,7 @@ import sha256 from 'sha256';
 import { compress, getFileDigest } from '../utils/compress.js';
 import { removeCrateHandler } from './remove.js';
 import path from 'path';
+import { createAndMountOverlay } from '../utils/layer.js';
 
 // Type definitions for command arguments
 interface BuildOptions {
@@ -69,34 +70,13 @@ export const buildHandler = async (options: BuildOptions) => {
   const workdir_path = upperdir_path + "_work";
   const merge_path = upperdir_path + "_merge";
 
-  createDirectory(upperdir_path);
-  createDirectory(workdir_path);
-  createDirectory(merge_path);
-
-  let lowerdir = ""
-
-  console.log(chalk.yellow('🔧 Processing lower layers...'));
-  for (let dir of lowerlayers) {
-    console.log(chalk.cyan('📦 Processing layer:'), chalk.yellow(dir));
-    const dir_path = process.env.BASE_DIRECTORY + "/crates/" + dir;
-    console.log(chalk.green('📁 Resolved layer path:'), chalk.cyan(dir_path));
-    lowerdir += dir_path + ":";
-  }
-
-  lowerdir = lowerdir.slice(0, -1); // Remove the last colon
-  console.log(chalk.magenta('⚙️  Layer configuration:'));
-  console.log(chalk.cyan('🔽 Lower layers:'), chalk.yellow(lowerdir));
-  console.log(chalk.cyan('🔼 Upper directory:'), chalk.yellow(upperdir_path));
-  console.log(chalk.cyan('🔧 Work directory:'), chalk.yellow(workdir_path));
-  console.log(chalk.cyan('📂 Merge directory:'), chalk.yellow(merge_path));
-  
-  // Mounting the directory
-  mountCrate(lowerdir, upperdir_path, workdir_path, merge_path);
+  await createAndMountOverlay(upperdir_path, lowerlayers, workdir_path, merge_path);
 
   // Update the database
   console.log(chalk.yellow('💾 Updating database...'));
   // Write the image file to the database
-  const keelanFile = await writeCrateFile(options.name, lowerdir);
+  const content = fs.readFileSync("Keelanfile.yml", 'utf8');
+  const keelanFile = await writeCrateFile(options.name, content);
   console.log(chalk.green('✅ Successfully updated database.'));
 
   // Setup crate (later)
@@ -174,6 +154,10 @@ export const buildHandler = async (options: BuildOptions) => {
     keelanFile[0].id);
   console.log(chalk.green('✅ Crate written to database.'));
 
+  // Unmount the crate
+  console.log(chalk.yellow('🧹 Unmounting crate...'));
+  unmountCrate(merge_path);
+  console.log(chalk.green('✅ Crate unmounted successfully.'));
 
   console.log(chalk.green('✅ Build completed successfully.'));
 

@@ -1,50 +1,105 @@
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import fs from 'fs-extra';
+import chalk from 'chalk';
 import load_env from 'dotenv';
 load_env.config();
 
 // Import handler functions from their respective modules
 import { buildHandler } from './handlers/build.js';
-import { deployHandler } from './handlers/deploy.js';
+import { deployHandler, monitorAllShips } from './handlers/deploy.js';
 import { configHandler } from './handlers/config.js';
-import { listHandler } from './handlers/list.js';
 import { removeCrateHandler, removeShipHandler } from './handlers/remove.js';
+import { daemonHandler } from './handlers/daemon.js';
+import { startShipHandler, stopShipHandler, restartShipHandler, listShipsHandler } from './handlers/ship.js';
+import { listCratesHandler } from './handlers/crate.js';
 
 // CLI setup
 const argv = yargs(hideBin(process.argv))
   .scriptName('keelan')
   .usage('Usage: $0 <command> [options]')
   .command(
-    ['deploy', 'up'],
-    'Deploy the project (alias: up)',
+    'ship <action> [name]',
+    'Manage ships (running containers)',
     (yargs) => {
       return yargs
+        .positional('action', {
+          describe: 'Action to perform on ship',
+          type: 'string',
+          choices: ['deploy', 'start', 'stop', 'restart', 'remove', 'list'] as const,
+          demandOption: true
+        })
+        .positional('name', {
+          describe: 'Name of the ship (required for deploy, start, stop, restart, remove)',
+          type: 'string'
+        })
         .option('env', {
           alias: 'e',
           type: 'string',
-          description: 'Environment to deploy to',
+          description: 'Environment (for deploy/start)',
           choices: ['dev', 'staging', 'production'] as const,
           default: 'dev'
         })
-        .option('dry-run', {
+        .option('force', {
+          alias: 'f',
           type: 'boolean',
-          description: 'Show what would be deployed without actually deploying',
+          description: 'Force action (for stop/remove)',
           default: false
         })
-        .option('workingDirectory', {
-          alias: "w",
-          type: 'string',
-          description: 'Working directory for deployment'
-        })
-        .option('name', {
-          alias: 'n',
-          type: 'string',
-          description: 'Name of the deployment',
-          demandOption: true
+        .option('recursive', {
+          alias: 'r',
+          type: 'boolean',
+          description: 'Recursive removal (for remove)',
+          default: false
         });
     },
-    (argv) => deployHandler(argv as any)
+    async (argv) => {
+      const { action, name, env, force, recursive } = argv as any;
+      
+      switch (action) {
+        case 'deploy':
+          if (!name) {
+            console.error(chalk.red('❌ Ship name is required for deploy'));
+            process.exit(1);
+          }
+          await deployHandler({ name, env });
+          break;
+        case 'start':
+          if (!name) {
+            console.error(chalk.red('❌ Ship name is required for start'));
+            process.exit(1);
+          }
+          await startShipHandler({ name, env });
+          break;
+        case 'stop':
+          if (!name) {
+            console.error(chalk.red('❌ Ship name is required for stop'));
+            process.exit(1);
+          }
+          await stopShipHandler({ name, force });
+          break;
+        case 'restart':
+          if (!name) {
+            console.error(chalk.red('❌ Ship name is required for restart'));
+            process.exit(1);
+          }
+          await restartShipHandler({ name, env });
+          break;
+        case 'remove':
+          if (!name) {
+            console.error(chalk.red('❌ Ship name is required for remove'));
+            process.exit(1);
+          }
+          await removeShipHandler({ name, force, recursive });
+          break;
+        case 'list':
+          await listShipsHandler();
+          break;
+        default:
+          console.error(chalk.red(`❌ Unknown ship action: ${action}`));
+          process.exit(1);
+      }
+    }
   )
   .command(
     'build',
@@ -104,24 +159,46 @@ const argv = yargs(hideBin(process.argv))
     (argv) => configHandler(argv as any)
   )
   .command(
-    'list [type]',
-    'List crates or ships',
+    'crate <action>',
+    'Manage crates (container images)',
     (yargs) => {
       return yargs
-        .positional('type', {
-          describe: 'Type of items to list',
+        .positional('action', {
+          describe: 'Action to perform on crate',
           type: 'string',
-          choices: ['crate', 'ship'] as const,
-          default: 'crate'
+          choices: ['list', 'remove'] as const,
+          demandOption: true
         })
-        .option('all', {
-          alias: 'a',
+        .positional('name', {
+          describe: 'Name of the crate (required for remove)',
+          type: 'string'
+        })
+        .option('force', {
+          alias: 'f',
           type: 'boolean',
-          description: 'List all items',
+          description: 'Force removal',
           default: false
         });
     },
-    (argv) => listHandler(argv as any)
+    async (argv) => {
+      const { action, name, force } = argv as any;
+      
+      switch (action) {
+        case 'list':
+          await listCratesHandler();
+          break;
+        case 'remove':
+          if (!name) {
+            console.error(chalk.red('❌ Crate name is required for remove'));
+            process.exit(1);
+          }
+          await removeCrateHandler({ name, force, recursive: false });
+          break;
+        default:
+          console.error(chalk.red(`❌ Unknown crate action: ${action}`));
+          process.exit(1);
+      }
+    }
   )
   .command(
     'init',
@@ -152,49 +229,95 @@ const argv = yargs(hideBin(process.argv))
       console.log('✅ Keelanfile.yml created successfully.');
     }
   )
+
   .command(
-    'remove-image <name>',
-    'Remove a Keelan image',
+    'monitor',
+    'Monitor all running ships and update their status',
     (yargs) => {
       return yargs
-        .positional('name', {
-          describe: 'Name of the image to remove',
-          type: 'string',
-          demandOption: true
-        })
-        .option('force', {
-          alias: 'f',
+        .option('watch', {
+          alias: 'w',
           type: 'boolean',
-          description: 'Force removal of the image',
+          description: 'Continuously monitor ships (runs every 30 seconds)',
           default: false
+        })
+        .option('interval', {
+          alias: 'i',
+          type: 'number',
+          description: 'Monitoring interval in seconds (only with --watch)',
+          default: 30
         });
     },
-    (argv) => removeCrateHandler(argv as any)
+    async (argv) => {
+      if (argv.watch) {
+        console.log(`🔍 Starting continuous monitoring (every ${argv.interval} seconds)...`);
+        console.log('Press Ctrl+C to stop monitoring');
+        
+        // Run initial check
+        await monitorAllShips();
+        
+        // Set up interval for continuous monitoring
+        const monitorInterval = setInterval(async () => {
+          await monitorAllShips();
+        }, argv.interval * 1000);
+        
+        // Handle graceful shutdown
+        process.on('SIGINT', () => {
+          console.log('\n🛑 Stopping monitor...');
+          clearInterval(monitorInterval);
+          process.exit(0);
+        });
+      } else {
+        // Run one-time check
+        console.log('🔍 Checking all running ships...');
+        await monitorAllShips();
+        console.log('✅ Monitoring check completed');
+      }
+    }
   )
   .command(
-    'remove-crate <name>',
-    'Remove a Keelan crate',
+    'daemon <action>',
+    'Manage the background monitoring daemon',
     (yargs) => {
       return yargs
-        .positional('name', {
-          describe: 'Name of the crate to remove',
+        .positional('action', {
+          describe: 'Action to perform',
           type: 'string',
+          choices: ['start', 'stop', 'status', 'restart'] as const,
           demandOption: true
         })
-        .option('force', {
+        .option('interval', {
+          alias: 'i',
+          type: 'number',
+          description: 'Monitoring interval in seconds (default: 30)',
+          default: 30
+        })
+        .option('log-file', {
+          alias: 'l',
+          type: 'string',
+          description: 'Custom log file path'
+        })
+        .option('pid-file', {
+          alias: 'p',
+          type: 'string',
+          description: 'Custom PID file path'
+        })
+        .option('foreground', {
           alias: 'f',
           type: 'boolean',
-          description: 'Force removal of the crate',
-          default: false
-        })
-        .option('recursive', {
-          alias: 'r',
-          type: 'boolean',
-          description: 'Recursively remove crate and its contents',
+          description: 'Run in foreground (for debugging)',
           default: false
         });
     },
-    (argv) => removeShipHandler(argv as any)
+    async (argv) => {
+      await daemonHandler({
+        action: argv.action as 'start' | 'stop' | 'status' | 'restart',
+        interval: argv.interval,
+        logFile: argv.logFile,
+        pidFile: argv.pidFile,
+        detach: !argv.foreground
+      });
+    }
   )
   .option('verbose', {
     alias: 'v',

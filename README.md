@@ -1,8 +1,8 @@
-# Shipper - The Lightweight Container Engine
+# Keelan Engine - The Lightweight Container Engine
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-**Shipper** is a minimalist container engine built from scratch.  
+**Keelan Engine** is a minimalist container engine built from scratch.  
 No daemons. No virtualization modules. No overhead.
 
 Run multiple isolated apps on a single VPS with zero conflict and near-zero cost.
@@ -13,7 +13,7 @@ Run multiple isolated apps on a single VPS with zero conflict and near-zero cost
 
 > Build your own tools. Run them your way.
 
-Shipper isn't here to replace Docker.  
+Keelan Engine isn't here to replace Docker.  
 It's for devs who want to understand everything they run — down to the filesystem.
 
 Every **crate** is a portable, isolated root filesystem.  
@@ -26,16 +26,16 @@ No cgroups. No kernel modules. Just you and the system.
 
 - ⚡ **Ultra-fast** builds and execution (<100ms startup)
 - 📦 **No dependency conflicts** – each app has its own rootfs
-- 🧱 **Custom syntax** via `Shipperfile`
+- 🧱 **Custom syntax** via `Keelanfile.yml`
 - 🧊 **Zero overhead** – no daemons, no idle RAM usage
 - 🛠️ **Designed for VPS & low-resource systems**
 
 ---
 
-## 📦 Shipperfile Example
+## 📦 Keelanfile.yml Example
 
 ```yaml
-# Shipperfile
+# Keelanfile.yml
 build_context:
   base_image: "debian"
   work_directory: "/app"
@@ -62,14 +62,20 @@ runtime_command: ["python3", "-m", "http.server", "8000"]
 ## ⚙️ Usage
 
 ```bash
-# Build the crate from Shipperfile
-shipper build
+# Build the crate from Keelanfile.yml
+keelan build --name my-app
 
-# Run the container (a.k.a. ship)
-shipper run
+# Deploy the container (a.k.a. ship)
+keelan deploy --name my-app
+
+# List all crates and ships
+keelan list
+
+# Remove a crate
+keelan remove-crate my-app
 ```
 
-Each ship runs in its own environment using OverlayFS and `proot`.  
+Each ship runs in its own environment using OverlayFS and `chroot`.  
 It feels like Docker, but runs like native.
 
 ---
@@ -109,5 +115,5 @@ Licensed under the [Apache 2.0 License](LICENSE)
 
 ---
 
-> “When you build it yourself, you control everything.”  
-> — Shipper
+> "When you build it yourself, you control everything."  
+> — Keelan Engine
