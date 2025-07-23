@@ -1,4 +1,4 @@
-import { removeImage, removeCrate } from '../core/core.js';
+import { removeCrate, removeShip } from '../core/core.js';
 import chalk from 'chalk';
 // Type definitions for command arguments
 interface ConfigOptions {

@@ -1,4 +1,4 @@
-# Shipperfile
+# Keelanfile
 # Define how to build and run your crate
 
 build_context:
@@ -6,9 +6,9 @@ build_context:
   work_directory: "/app"
 
 build_steps:
-  # - action: copy_files
-  #   source: "./src"
-  #   destination: "/app"
+  - action: copy_files
+    source: "./src"
+    destination: "/app"
 
   - action: execute_command
     description: "Update package lists and install python"
@@ -16,9 +16,9 @@ build_steps:
     # You could add options like 'shell: true' if you want a shell context
     # or 'fail_on_error: true' for explicit error handling
 
-  - action: execute_command
-    description: "Install Python pip"
-    command: ["apt-get", "install", "-y", "python3-pip"]
+  # - action: execute_command
+  #   description: "Install Python pip"
+  #   command: ["apt-get", "install", "-y", "python3-pip"]
 
 crate_config:
   expose_ports: [8000, 8080]

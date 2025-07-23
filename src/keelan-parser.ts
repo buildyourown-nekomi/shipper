@@ -1,13 +1,14 @@
 /**
- * Shipperfile Parser
+ * Keelanfile Parser
  * Parses YAML configuration files for crate build and runtime configuration
  */
 
 import { parse } from 'yaml';
-import * as fs from 'fs';
+import fs from 'fs-extra';
+import * as fs_original from 'fs';
 import * as path from 'path';
 
-// Type definitions for the Shipperfile configuration
+// Type definitions for the Keelanfile configuration
 
 export interface BuildContext {
   base_image: string;
@@ -29,7 +30,7 @@ export interface CrateConfig {
   environment_variables: Record<string, string>;
 }
 
-export interface ShipperConfig {
+export interface KeelanConfig {
   build_context: BuildContext;
   build_steps: BuildStep[];
   crate_config: CrateConfig;
@@ -37,67 +38,67 @@ export interface ShipperConfig {
   runtime_command?: string[];
 }
 
-export class ShipperParserError extends Error {
+export class KeelanParserError extends Error {
   constructor(message: string, public readonly line?: number, public readonly column?: number) {
     super(message);
-    this.name = 'ShipperParserError';
+    this.name = 'KeelanParserError';
   }
 }
 
-export class ShipperParser {
+export class KeelanParser {
   /**
-   * Parse a Shipperfile from a file path
-   * @param filePath Path to the Shipperfile
+   * Parse a Keelanfile from a file path
+   * @param filePath Path to the Keelanfile
    * @returns Parsed configuration
    */
-  static parseFromFile(filePath: string): ShipperConfig {
+  static parseFromFile(filePath: string): KeelanConfig {
     try {
-      if (!fs.existsSync(filePath)) {
-        throw new ShipperParserError(`Shipperfile not found: ${filePath}`);
+      if (!fs_original.existsSync(filePath)) {
+        throw new KeelanParserError(`Keelanfile not found: ${filePath}`);
       }
 
-      const content = fs.readFileSync(filePath, 'utf8');
+      const content = fs_original.readFileSync(filePath, 'utf8');
       return this.parseFromString(content);
     } catch (error: any) {
-      if (error instanceof ShipperParserError) {
+      if (error instanceof KeelanParserError) {
         throw error;
       }
-      throw new ShipperParserError(`Failed to read file: ${error.message}`);
+      throw new KeelanParserError(`Failed to read file: ${error.message}`);
     }
   }
 
   /**
-   * Parse a Shipperfile from string content
+   * Parse a Keelanfile from string content
    * @param content YAML content as string
    * @returns Parsed configuration
    */
-  static parseFromString(content: string): ShipperConfig {
+  static parseFromString(content: string): KeelanConfig {
     try {
       const parsed = parse(content) as any;
       
       if (!parsed || typeof parsed !== 'object') {
-        throw new ShipperParserError('Invalid YAML format: expected object');
+        throw new KeelanParserError('Invalid YAML format: expected object');
       }
 
       return this.validateAndTransform(parsed);
     } catch (error) {
-      if (error instanceof ShipperParserError) {
+      if (error instanceof KeelanParserError) {
         throw error;
       }
       if (error instanceof Error) {
-        throw new ShipperParserError(`YAML parsing error: ${error.message}`);
+        throw new KeelanParserError(`YAML parsing error: ${error.message}`);
       }
-      throw new ShipperParserError(`Parsing failed: ${String(error)}`);
+      throw new KeelanParserError(`Parsing failed: ${String(error)}`);
     }
   }
 
   /**
-   * Validate and transform the parsed YAML into a ShipperConfig
+   * Validate and transform the parsed YAML into a KeelanConfig
    * @param raw Raw parsed YAML object
-   * @returns Validated ShipperConfig
+   * @returns Validated KeelanConfig
    */
-  private static validateAndTransform(raw: any): ShipperConfig {
-    const config: ShipperConfig = {
+  private static validateAndTransform(raw: any): KeelanConfig {
+    const config: KeelanConfig = {
       build_context: this.validateBuildContext(raw.build_context),
       build_steps: this.validateBuildSteps(raw.build_steps),
       crate_config: this.validateCrateConfig(raw.crate_config),
@@ -123,15 +124,15 @@ export class ShipperParser {
 
   private static validateBuildContext(raw: any): BuildContext {
     if (!raw || typeof raw !== 'object') {
-      throw new ShipperParserError('build_context must be an object');
+      throw new KeelanParserError('build_context must be an object');
     }
 
     if (typeof raw.base_image !== 'string') {
-      throw new ShipperParserError('build_context.base_image must be a string');
+      throw new KeelanParserError('build_context.base_image must be a string');
     }
 
     if (typeof raw.work_directory !== 'string') {
-      throw new ShipperParserError('build_context.work_directory must be a string');
+      throw new KeelanParserError('build_context.work_directory must be a string');
     }
 
     return {
@@ -142,11 +143,11 @@ export class ShipperParser {
 
   private static validateBuildSteps(raw: any): BuildStep[] {
     if (!Array.isArray(raw)) {
-      throw new ShipperParserError('build_steps must be an array');
+      throw new KeelanParserError('build_steps must be an array');
     }
 
     if (raw.length === 0) {
-      throw new ShipperParserError('build_steps cannot be empty');
+      throw new KeelanParserError('build_steps cannot be empty');
     }
 
     return raw.map((step, index) => this.validateBuildStep(step, index));
@@ -154,11 +155,11 @@ export class ShipperParser {
 
   private static validateBuildStep(raw: any, index: number): BuildStep {
     if (!raw || typeof raw !== 'object') {
-      throw new ShipperParserError(`build_steps[${index}] must be an object`);
+      throw new KeelanParserError(`build_steps[${index}] must be an object`);
     }
 
     if (typeof raw.action !== 'string') {
-      throw new ShipperParserError(`build_steps[${index}].action must be a string`);
+      throw new KeelanParserError(`build_steps[${index}].action must be a string`);
     }
 
     const step: BuildStep = {
@@ -168,21 +169,21 @@ export class ShipperParser {
     // Optional fields based on action type
     if (raw.source !== undefined) {
       if (typeof raw.source !== 'string') {
-        throw new ShipperParserError(`build_steps[${index}].source must be a string`);
+        throw new KeelanParserError(`build_steps[${index}].source must be a string`);
       }
       step.source = raw.source;
     }
 
     if (raw.destination !== undefined) {
       if (typeof raw.destination !== 'string') {
-        throw new ShipperParserError(`build_steps[${index}].destination must be a string`);
+        throw new KeelanParserError(`build_steps[${index}].destination must be a string`);
       }
       step.destination = raw.destination;
     }
 
     if (raw.description !== undefined) {
       if (typeof raw.description !== 'string') {
-        throw new ShipperParserError(`build_steps[${index}].description must be a string`);
+        throw new KeelanParserError(`build_steps[${index}].description must be a string`);
       }
       step.description = raw.description;
     }
@@ -193,14 +194,14 @@ export class ShipperParser {
 
     if (raw.shell !== undefined) {
       if (typeof raw.shell !== 'boolean') {
-        throw new ShipperParserError(`build_steps[${index}].shell must be a boolean`);
+        throw new KeelanParserError(`build_steps[${index}].shell must be a boolean`);
       }
       step.shell = raw.shell;
     }
 
     if (raw.fail_on_error !== undefined) {
       if (typeof raw.fail_on_error !== 'boolean') {
-        throw new ShipperParserError(`build_steps[${index}].fail_on_error must be a boolean`);
+        throw new KeelanParserError(`build_steps[${index}].fail_on_error must be a boolean`);
       }
       step.fail_on_error = raw.fail_on_error;
     }
@@ -210,7 +211,7 @@ export class ShipperParser {
 
   private static validateCrateConfig(raw: any): CrateConfig {
     if (!raw || typeof raw !== 'object') {
-      throw new ShipperParserError('crate_config must be an object');
+      throw new KeelanParserError('crate_config must be an object');
     }
 
     const config: CrateConfig = {
@@ -220,11 +221,11 @@ export class ShipperParser {
 
     if (raw.expose_ports !== undefined) {
       if (!Array.isArray(raw.expose_ports)) {
-        throw new ShipperParserError('crate_config.expose_ports must be an array');
+        throw new KeelanParserError('crate_config.expose_ports must be an array');
       }
       config.expose_ports = raw.expose_ports.map((port: any, index: number) => {
         if (typeof port !== 'number' || !Number.isInteger(port) || port < 1 || port > 65535) {
-          throw new ShipperParserError(
+          throw new KeelanParserError(
             `crate_config.expose_ports[${index}] must be an integer between 1 and 65535`
           );
         }
@@ -234,12 +235,12 @@ export class ShipperParser {
 
     if (raw.environment_variables !== undefined) {
       if (!raw.environment_variables || typeof raw.environment_variables !== 'object') {
-        throw new ShipperParserError('crate_config.environment_variables must be an object');
+        throw new KeelanParserError('crate_config.environment_variables must be an object');
       }
       
       for (const [key, value] of Object.entries(raw.environment_variables)) {
         if (typeof value !== 'string') {
-          throw new ShipperParserError(
+          throw new KeelanParserError(
             `crate_config.environment_variables.${key} must be a string`
           );
         }
@@ -252,32 +253,32 @@ export class ShipperParser {
 
   private static validateStringArray(raw: any, fieldName: string): string[] {
     if (!Array.isArray(raw)) {
-      throw new ShipperParserError(`${fieldName} must be an array`);
+      throw new KeelanParserError(`${fieldName} must be an array`);
     }
 
     return raw.map((item, index) => {
       if (typeof item !== 'string') {
-        throw new ShipperParserError(`${fieldName}[${index}] must be a string`);
+        throw new KeelanParserError(`${fieldName}[${index}] must be a string`);
       }
       return item;
     });
   }
 
   /**
-   * Get the default Shipperfile path
-   * @param baseDir Base directory to search for Shipperfile
-   * @returns Path to the Shipperfile
+   * Get the default Keelanfile path
+   * @param baseDir Base directory to search for Keelanfile
+   * @returns Path to the Keelanfile
    */
   static getDefaultPath(baseDir: string = process.cwd()): string {
-    const possibleNames = ['Shipperfile', 'Shipperfile.yml', 'Shipperfile.yaml'];
+    const possibleNames = ['Keelanfile', 'Keelanfile.yml', 'Keelanfile.yaml'];
     
     for (const name of possibleNames) {
       const fullPath = path.join(baseDir, name);
-      if (fs.existsSync(fullPath)) {
+      if (fs_original.existsSync(fullPath)) {
         return fullPath;
       }
     }
     
-    return path.join(baseDir, 'Shipperfile');
+    return path.join(baseDir, 'Keelanfile');
   }
 }

@@ -1,9 +1,12 @@
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import Database from 'better-sqlite3';
 import fs from 'fs';
+import load_env from 'dotenv';
+load_env.config();
 
 // Initialize database
-const sqlite = new Database('database.db');
+fs.mkdirSync(process.env.BASE_DIRECTORY + '/database', { recursive: true });
+const sqlite = new Database(process.env.BASE_DIRECTORY + '/database/keelan.db');
 const db = drizzle(sqlite);
 
 // Migration functions

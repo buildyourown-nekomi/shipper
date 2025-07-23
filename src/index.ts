@@ -1,6 +1,6 @@
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
-import * as fs from 'fs';
+import fs from 'fs-extra';
 import load_env from 'dotenv';
 load_env.config();
 
@@ -9,11 +9,11 @@ import { buildHandler } from './handlers/build.js';
 import { deployHandler } from './handlers/deploy.js';
 import { configHandler } from './handlers/config.js';
 import { listHandler } from './handlers/list.js';
-import { removeImageHandler, removeContainerHandler } from './handlers/remove.js';
+import { removeCrateHandler, removeShipHandler } from './handlers/remove.js';
 
 // CLI setup
 const argv = yargs(hideBin(process.argv))
-  .scriptName('shipper')
+  .scriptName('keelan')
   .usage('Usage: $0 <command> [options]')
   .command(
     ['deploy', 'up'],
@@ -33,6 +33,7 @@ const argv = yargs(hideBin(process.argv))
           default: false
         })
         .option('workingDirectory', {
+          alias: "w",
           type: 'string',
           description: 'Working directory for deployment'
         })
@@ -51,7 +52,6 @@ const argv = yargs(hideBin(process.argv))
     (yargs) => {
       return yargs
         .option('watch', {
-          alias: 'w',
           type: 'boolean',
           description: 'Watch for changes',
           default: false
@@ -63,6 +63,7 @@ const argv = yargs(hideBin(process.argv))
           default: false
         })
         .option('workingDirectory', {
+          alias: "w",
           type: 'string',
           description: 'Working directory for build'
         })
@@ -104,13 +105,13 @@ const argv = yargs(hideBin(process.argv))
   )
   .command(
     'list [type]',
-    'List crates or images',
+    'List crates or ships',
     (yargs) => {
       return yargs
         .positional('type', {
           describe: 'Type of items to list',
           type: 'string',
-          choices: ['crate', 'images'] as const,
+          choices: ['crate', 'ship'] as const,
           default: 'crate'
         })
         .option('all', {
@@ -124,14 +125,14 @@ const argv = yargs(hideBin(process.argv))
   )
   .command(
     'init',
-    'Initialize a new Shipper project',
+    'Initialize a new Keelan project',
     () => {
       // No options for init command
     },
     (argv) => {
-      const shipperfileContent = `
-        # Shipperfile for project
-        # See https://shipper.dev/docs/shipperfile
+      const KeelanfileContent = `
+        # Keelanfile for project
+        # See https://Keelan.dev/docs/Keelanfile
         
         build:
           engine: debian_rootfs
@@ -146,14 +147,14 @@ const argv = yargs(hideBin(process.argv))
           args: ['dist/index.js']
       `;
       
-      fs.writeFileSync('Shipperfile.yml', shipperfileContent.trim());
+      fs.writeFileSync('Keelanfile.yml', KeelanfileContent.trim());
       
-      console.log('✅ Shipperfile.yml created successfully.');
+      console.log('✅ Keelanfile.yml created successfully.');
     }
   )
   .command(
     'remove-image <name>',
-    'Remove a Shipper image',
+    'Remove a Keelan image',
     (yargs) => {
       return yargs
         .positional('name', {
@@ -168,11 +169,11 @@ const argv = yargs(hideBin(process.argv))
           default: false
         });
     },
-    (argv) => removeImageHandler(argv as any)
+    (argv) => removeCrateHandler(argv as any)
   )
   .command(
     'remove-crate <name>',
-    'Remove a Shipper crate',
+    'Remove a Keelan crate',
     (yargs) => {
       return yargs
         .positional('name', {
@@ -193,7 +194,7 @@ const argv = yargs(hideBin(process.argv))
           default: false
         });
     },
-    (argv) => removeContainerHandler(argv as any)
+    (argv) => removeShipHandler(argv as any)
   )
   .option('verbose', {
     alias: 'v',

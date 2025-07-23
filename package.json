@@ -1,7 +1,7 @@
 {
-  "name": "drizzle-sqlite-minimal",
+  "name": "keelan",
   "version": "1.0.0",
-  "description": "Minimal Node.js TypeScript project with Drizzle ORM and SQLite",
+  "description": "A CLI tool for managing Keelan Engine containers",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
@@ -12,18 +12,21 @@
     "postbuild": "sed -i '1s/^/#\\!\\/usr\\/bin\\/env node\\n/' dist/index.js"
   },
   "bin": {
-    "shipper": "./dist/index.js"
+    "keelan": "./dist/index.js"
   },
   "dependencies": {
     "better-sqlite3": "^11.10.0",
     "chalk": "^5.4.1",
     "dotenv": "^17.2.0",
     "drizzle-orm": "^0.32.0",
+    "fs-extra": "^11.3.0",
     "sha256": "^0.2.0",
+    "tar": "^7.4.3",
     "yaml": "^2.8.0"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.10",
+    "@types/fs-extra": "^11.0.4",
     "@types/node": "^20.14.0",
     "@types/sha256": "^0.2.2",
     "@types/yargs": "^17.0.33",

@@ -1,6 +1,6 @@
 import { db } from "../database/db.js"; 
 import { eq } from "drizzle-orm";
-import { shipperImages } from "../database/schema.js";
+import { keelanCrate } from "../database/schema.js";
 
 export async function resolveLayer(name: string, layers: string[] = []): Promise<string[]> {
     
@@ -12,8 +12,8 @@ export async function resolveLayer(name: string, layers: string[] = []): Promise
     }
 
     // Query the database for the layer
-    const result = await db.select().from(shipperImages).where(
-        eq(shipperImages.name, name)
+    const result = await db.select().from(keelanCrate).where(
+        eq(keelanCrate.name, name)
     ).limit(1);
     
     if (!result) {

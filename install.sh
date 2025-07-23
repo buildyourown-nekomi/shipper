@@ -7,6 +7,6 @@ sudo apt update
 sudo apt-get install debootstrap
 
 # Init filesystem in lowerdir
-sudo debootstrap --arch=amd64 stable /var/lib/shipper/crates/debian_rootfs http://deb.debian.org/debian/
+sudo debootstrap --arch=amd64 stable /var/lib/keelan/crates/debian http://deb.debian.org/debian/
 
-sudo apt install proot
+sudo apt install coreutils
