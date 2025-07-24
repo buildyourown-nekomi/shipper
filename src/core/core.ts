@@ -5,6 +5,7 @@ import sha256 from "sha256";
 import { eq } from "drizzle-orm";
 import load_env from "dotenv";
 import chalk from "chalk";
+import { PATHS } from "../constants.js";
 load_env.config({ quiet: true });
 
 export function createDirectory(path: string): void {
@@ -137,7 +138,7 @@ export async function removeCrate(name: string, options: { force?: boolean } = {
         // Check if the crate is existing
 
         // Remove the directory of the image
-        const cratePath = `${process.env.BASE_DIRECTORY}/crates/${name}`;
+        const cratePath = `${PATHS.crates}/${name}`;
         const workcratePath = `${cratePath}_work`;
         const mergecratePath = `${cratePath}_merge`;
         // execSync(`sudo umount ${mergecratePath} || ${options.force ? 'true' : 'false'}`);
@@ -171,7 +172,7 @@ export async function removeGzipCrate(name: string, options: { force?: boolean }
             return;
         }
 
-        const gzipCratePath = `${process.env.BASE_DIRECTORY}/crates/${name}.tar.gz`;
+        const gzipCratePath = `${PATHS.crates}/${name}.tar.gz`;
         
         console.log(chalk.yellow(`🧹 Removing gzip crate: ${gzipCratePath}`));
         const rmCommand = `sudo rm -rf ${gzipCratePath}`
@@ -190,7 +191,7 @@ export async function removeGzipCrate(name: string, options: { force?: boolean }
 export async function removeShip(shipID: string, options: { force?: boolean; recursive?: boolean } = {}): Promise<void> {
     try {
         // Remove the directory of the image
-        const cratePath = `${process.env.BASE_DIRECTORY}/ships/${shipID}`;
+        const cratePath = `${PATHS.ships}/${shipID}`;
         const workcratePath = `${cratePath}_work`;
         const mergecratePath = `${cratePath}_merge`;
         unmountCrate(mergecratePath);

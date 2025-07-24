@@ -2,6 +2,7 @@ import chalk from 'chalk';
 import { db } from '../database/db.js';
 import { keelanCrate, keelanShips } from '../database/schema.js';
 import { eq } from 'drizzle-orm';
+import { PATHS } from '../constants.js';
 // Type definitions for command arguments
 interface ListOptions {
   type: 'crate' | 'ships';
@@ -37,7 +38,7 @@ async function listShips() {
     console.log(chalk.gray(`  📅 Started: ${ship.startedAt}`));
     console.log(chalk.gray(`  📅 Stopped: ${ship.stoppedAt}`));
     console.log(chalk.gray(`  💀 Exit code: ${ship.exitCode}`));
-    console.log(chalk.gray(`  📁 Logs: ${process.env.BASE_DIRECTORY}/logs/${ship.name}/`));
+    console.log(chalk.gray(`  📁 Logs: ${PATHS.logs}/${ship.name}/`));
   }
 }
 

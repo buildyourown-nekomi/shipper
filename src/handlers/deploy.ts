@@ -3,6 +3,7 @@ import * as fs_original from 'fs';
 import { execSync } from 'child_process';
 import { parse } from 'yaml';
 import chalk from 'chalk';
+import path from 'path';
 import { KeelanParser } from '../keelan-parser.js';
 import { keelanFiles, keelanShips } from '../database/schema.js';
 import { eq } from 'drizzle-orm';
@@ -11,9 +12,9 @@ import { makeid } from '../utils/utils.js';
 import { resolveLayer } from '../core/layer.js';
 import { createDirectory } from '../core/core.js';
 import { createAndMountOverlay } from '../utils/layer.js';
+import { PATHS } from '../constants.js';
 
 import net from 'net';
-import xpipe from 'xpipe';
 
 // Type definitions for command arguments
 interface DeployOptions {
@@ -52,22 +53,22 @@ export const deployHandler = async (options: DeployOptions) => {
   const lowerlayers = await resolveLayer(file_data[0].name);
   console.log(chalk.green('✅ Successfully resolved'), chalk.cyan(lowerlayers.length), chalk.green('layers'));
 
-  const upperdir_path = process.env.BASE_DIRECTORY + "/ships/" + shipID;
+  const upperdir_path = path.join(PATHS.ships, shipID);
 
   const workdir_path = upperdir_path + "_work";
   const merge_path = upperdir_path + "_merge";
 
   await createAndMountOverlay(upperdir_path, lowerlayers, workdir_path, merge_path);
 
-  const command_w_chroot = `chroot ${process.env.BASE_DIRECTORY}/ships/${shipID}_merge ${steps.join(' ')}`;
+  const command_w_chroot = `chroot ${path.join(PATHS.ships, shipID + '_merge')} ${steps.join(' ')}`;
 
   console.log(chalk.magenta('🚀 Preparing to deploy in crate:'), chalk.cyan(command_w_chroot));
 
   // Ensure the log directory exists
-  const logDir = `${process.env.BASE_DIRECTORY}/logs/${options.name}`;
+  const logDir = path.join(PATHS.logs, options.name);
   await fs.ensureDir(logDir);
 
-  // Connect to daemon via named pipe, fallback to TCP if not supported
+  // Connect to daemon via TCP
   const connectToDaemon = () => {
     return new Promise<void>((resolve, reject) => {
       const message = {
@@ -78,9 +79,7 @@ export const deployHandler = async (options: DeployOptions) => {
         imageId: file_data[0].id
       };
 
-      // Try named pipe first
-      const pipePath = xpipe.eq('keelan-daemon');
-      const client = net.createConnection(pipePath, () => {
+      const client = net.createConnection(9876, 'localhost', () => {
         client.write(JSON.stringify(message));
       });
 
@@ -95,35 +94,9 @@ export const deployHandler = async (options: DeployOptions) => {
         resolve();
       });
 
-      client.on('error', (err: any) => {
-        if (err.code === 'ENOTSUP' || err.code === 'ENOTFOUND' || err.code === 'ENOENT') {
-          console.log(chalk.yellow('⚠️  Named pipe not available, trying TCP connection...'));
-          client.destroy();
-          
-          // Fallback to TCP
-          const tcpClient = net.createConnection(9876, 'localhost', () => {
-            tcpClient.write(JSON.stringify(message));
-          });
-
-          tcpClient.on('data', (data) => {
-            const response = JSON.parse(data.toString());
-            if (response.status === 'success') {
-              console.log(chalk.green('✅ Command executed successfully. PID:'), chalk.yellow(response.pid));
-            } else {
-              console.error(chalk.red('❌ Deployment failed:'), response.message);
-            }
-            tcpClient.end();
-            resolve();
-          });
-
-          tcpClient.on('error', (tcpErr) => {
-            console.error(chalk.red('❌ Error connecting to daemon via TCP:'), tcpErr.message);
-            reject(tcpErr);
-          });
-        } else {
-          console.error(chalk.red('❌ Error connecting to daemon:'), err.message);
-          reject(err);
-        }
+      client.on('error', (err) => {
+        console.error(chalk.red('❌ Error connecting to daemon via TCP:'), err.message);
+        reject(err);
       });
     });
   };
@@ -137,5 +110,5 @@ export const deployHandler = async (options: DeployOptions) => {
 
   console.log(chalk.green('🎉 Deploy initiated!'));
   console.log(chalk.blue('📊 Monitoring handled by daemon...'));
-  console.log(chalk.gray(`📁 Logs: ${process.env.BASE_DIRECTORY}/logs/${options.name}/`));
+  console.log(chalk.gray(`📁 Logs: ${path.join(PATHS.logs, options.name)}/`));
 };

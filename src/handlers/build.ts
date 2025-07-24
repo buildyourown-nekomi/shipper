@@ -12,6 +12,7 @@ import { compress, getFileDigest } from '../utils/compress.js';
 import { removeCrateHandler } from './remove.js';
 import path from 'path';
 import { createAndMountOverlay } from '../utils/layer.js';
+import { PATHS } from '../constants.js';
 
 // Type definitions for command arguments
 interface BuildOptions {
@@ -65,7 +66,7 @@ export const buildHandler = async (options: BuildOptions) => {
   console.log(chalk.green('✅ Successfully resolved'), chalk.cyan(lowerlayers.length), chalk.green('layers'));
   
   const upperdir = options.name;
-  const upperdir_path = process.env.BASE_DIRECTORY + "/crates/" + upperdir;
+  const upperdir_path = `${PATHS.crates}/${upperdir}`;
 
   const workdir_path = upperdir_path + "_work";
   const merge_path = upperdir_path + "_merge";
@@ -131,7 +132,7 @@ export const buildHandler = async (options: BuildOptions) => {
   // Gzip the crate (upperdir)
   console.log(chalk.yellow('📦 Compressing crate...'));
 
-  const archivePath = process.env.BASE_DIRECTORY + "/crates/" + options.name + ".tar.gz";
+  const archivePath = `${PATHS.crates}/${options.name}.tar.gz`;
 
   await compress(path.dirname(upperdir_path), path.basename(upperdir_path), archivePath);
 
@@ -165,7 +166,7 @@ export const buildHandler = async (options: BuildOptions) => {
 
 async function runCommandInCrate(command: string, crate: string) {
   // Run the command in the crate
-  const crate_path = process.env.BASE_DIRECTORY + "/crates/" + crate + "_merge";
+  const crate_path = `${PATHS.crates}/${crate}_merge`;
   console.log(chalk.magenta('🏃 Running command in crate:'), chalk.cyan(crate_path));
   console.log(chalk.blue('🔧 Command:'), chalk.yellow(command));
 

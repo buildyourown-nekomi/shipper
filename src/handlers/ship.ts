@@ -1,13 +1,13 @@
 import chalk from 'chalk';
-import { spawn } from 'child_process';
 import fs from 'fs-extra';
+import net from 'net';
 import { db } from '../database/db.js';
 import { keelanFiles, keelanShips } from '../database/schema.js';
 import { eq } from 'drizzle-orm';
 import { KeelanParser } from '../keelan-parser.js';
 import { resolveLayer } from '../core/layer.js';
 import { createAndMountOverlay } from '../utils/layer.js';
-import { makeid } from '../utils/utils.js';
+import { PATHS } from '../constants.js';
 
 // Type definitions
 interface ShipOptions {
@@ -19,14 +19,25 @@ interface StartShipOptions extends ShipOptions {
   env?: 'dev' | 'staging' | 'production';
 }
 
-// Helper function to check if process is running
-async function isProcessRunning(pid: number): Promise<boolean> {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (error: any) {
-    return error.code !== 'ESRCH';
-  }
+
+
+// Helper function to send message to daemon
+async function sendMessageToDaemon(message: any): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const client = net.createConnection(9876, 'localhost', () => {
+      client.write(JSON.stringify(message));
+    });
+
+    client.on('data', (data) => {
+      const response = JSON.parse(data.toString());
+      client.end();
+      resolve(response);
+    });
+
+    client.on('error', (err) => {
+      reject(new Error(`Failed to connect to daemon: ${err.message}`));
+    });
+  });
 }
 
 // Start a ship
@@ -43,11 +54,8 @@ export const startShipHandler = async (options: StartShipOptions) => {
     if (existingShip.length > 0) {
       const ship = existingShip[0];
       if (ship.status === 'running' && ship.processId) {
-        const isRunning = await isProcessRunning(ship.processId);
-        if (isRunning) {
-          console.log(chalk.yellow(`⚠️  Ship '${name}' is already running (PID: ${ship.processId})`));
-          return;
-        }
+        console.log(chalk.yellow(`⚠️  Ship '${name}' is already running (PID: ${ship.processId})`));
+        return;
       }
     }
     
@@ -81,56 +89,41 @@ export const startShipHandler = async (options: StartShipOptions) => {
     
     // Resolve layers and mount overlay
     const lowerlayers = await resolveLayer(crateData[0].name);
-    const upperdir_path = process.env.BASE_DIRECTORY + "/ships/" + name;
+    const upperdir_path = `${PATHS.ships}/${name}`;
     const workdir_path = upperdir_path + "_work";
     const merge_path = upperdir_path + "_merge";
     
     await createAndMountOverlay(upperdir_path, lowerlayers, workdir_path, merge_path);
     
-    const command_w_chroot = `chroot ${process.env.BASE_DIRECTORY}/ships/${name}_merge ${steps.join(' ')}`;
+    const command_w_chroot = `chroot ${PATHS.ships}/${name}_merge ${steps.join(' ')}`;
     
     // Ensure log directory exists
-    const logDir = `${process.env.BASE_DIRECTORY}/logs/${name}`;
+    const logDir = `${PATHS.logs}/${name}`;
     await fs.ensureDir(logDir);
     
-    const out = fs.openSync(`${logDir}/out.log`, 'a');
-    const err = fs.openSync(`${logDir}/err.log`, 'a');
-    
-    // Spawn the process
-    const child = spawn(command_w_chroot, {
-      shell: true,
-      stdio: ['ignore', out, err],
-      detached: true,
-      windowsHide: true
-    });
-    
-    const pid = child.pid;
-    
-    // Close file descriptors in parent process to prevent resource leaks
-    fs.closeSync(out);
-    fs.closeSync(err);
-    
-    if (!pid) {
-      console.error(chalk.red('❌ Failed to start ship process'));
+    // Send start message to daemon
+    try {
+      const message = {
+        type: 'start',
+        shipName: name,
+        command: command_w_chroot,
+        logDir: logDir,
+        imageId: shipData.imageId
+      };
+      
+      const response = await sendMessageToDaemon(message);
+      
+      if (response.status === 'success') {
+        console.log(chalk.green(`✅ Ship '${name}' started successfully. PID: ${response.pid}`));
+      } else {
+        console.error(chalk.red(`❌ Failed to start ship '${name}': ${response.message}`));
+        process.exit(1);
+      }
+    } catch (error) {
+      console.error(chalk.red(`❌ Failed to communicate with daemon: ${error}`));
+      console.log(chalk.yellow('💡 Make sure the daemon is running with: keelan daemon start'));
       process.exit(1);
     }
-    
-    console.log(chalk.green(`✅ Ship '${name}' started successfully. PID: ${pid}`));
-    
-    // Update ship status in database
-    await db.update(keelanShips)
-      .set({
-        processId: pid,
-        status: "running",
-        startedAt: new Date().toISOString(),
-        stoppedAt: null,
-        exitCode: null
-      })
-      .where(eq(keelanShips.name, name))
-      .execute();
-    
-    // Detach the child process - monitoring is handled by the daemon
-    child.unref();
     
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -144,84 +137,28 @@ export const stopShipHandler = async (options: ShipOptions) => {
   const { name, force = false } = options;
   
   try {
-    // Find the ship
-    const ships = await db.select()
-      .from(keelanShips)
-      .where(eq(keelanShips.name, name))
-      .limit(1);
+    console.log(chalk.cyan(`🛑 Stopping ship '${name}'...`));
     
-    if (!ships.length) {
-      console.error(chalk.red(`❌ Ship '${name}' not found.`));
-      process.exit(1);
-    }
-    
-    const ship = ships[0];
-    
-    if (ship.status !== 'running' || !ship.processId) {
-      console.log(chalk.yellow(`⚠️  Ship '${name}' is not running.`));
-      return;
-    }
-    
-    // Check if process is actually running
-    const isRunning = await isProcessRunning(ship.processId);
-    if (!isRunning) {
-      console.log(chalk.yellow(`⚠️  Ship '${name}' process is not running. Updating status...`));
-      await db.update(keelanShips)
-        .set({
-          status: "stopped",
-          stoppedAt: new Date().toISOString()
-        })
-        .where(eq(keelanShips.name, name))
-        .execute();
-      return;
-    }
-    
-    console.log(chalk.cyan(`🛑 Stopping ship '${name}' (PID: ${ship.processId})...`));
-    
+    // Send stop message to daemon
     try {
-      // Try graceful shutdown first (SIGTERM)
-      process.kill(ship.processId, 'SIGTERM');
+      const message = {
+        type: 'stop',
+        shipName: name,
+        force: force
+      };
       
-      // Wait a bit for graceful shutdown
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const response = await sendMessageToDaemon(message);
       
-      // Check if process is still running
-      const stillRunning = await isProcessRunning(ship.processId);
-      
-      if (stillRunning) {
-        if (force) {
-          console.log(chalk.yellow(`⚠️  Force killing ship '${name}'...`));
-          process.kill(ship.processId, 'SIGKILL');
-        } else {
-          console.log(chalk.yellow(`⚠️  Ship '${name}' did not stop gracefully. Use --force to kill it.`));
-          return;
-        }
-      }
-      
-      console.log(chalk.green(`✅ Ship '${name}' stopped successfully.`));
-      
-      // Update ship status
-      await db.update(keelanShips)
-        .set({
-          status: "stopped",
-          stoppedAt: new Date().toISOString()
-        })
-        .where(eq(keelanShips.name, name))
-        .execute();
-        
-    } catch (killError: any) {
-      if (killError.code === 'ESRCH') {
-        console.log(chalk.yellow(`⚠️  Ship '${name}' process was already stopped.`));
-        await db.update(keelanShips)
-          .set({
-            status: "stopped",
-            stoppedAt: new Date().toISOString()
-          })
-          .where(eq(keelanShips.name, name))
-          .execute();
+      if (response.status === 'success') {
+        console.log(chalk.green(`✅ Ship '${name}' stopped successfully`));
       } else {
-        throw killError;
+        console.error(chalk.red(`❌ Failed to stop ship '${name}': ${response.message}`));
+        process.exit(1);
       }
+    } catch (error) {
+      console.error(chalk.red(`❌ Failed to communicate with daemon: ${error}`));
+      console.log(chalk.yellow('💡 Make sure the daemon is running with: keelan daemon start'));
+      process.exit(1);
     }
     
   } catch (error) {
@@ -235,16 +172,25 @@ export const stopShipHandler = async (options: ShipOptions) => {
 export const restartShipHandler = async (options: StartShipOptions) => {
   const { name } = options;
   
-  console.log(chalk.cyan(`🔄 Restarting ship '${name}'...`));
-  
-  // Stop the ship first
-  await stopShipHandler({ name, force: true });
-  
-  // Wait a moment
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  
-  // Start the ship
-  await startShipHandler(options);
+  try {
+    console.log(chalk.cyan(`🔄 Restarting ship '${name}'...`));
+    
+    // Stop the ship first
+    await stopShipHandler({ name, force: true });
+    
+    // Wait a moment before starting
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Start the ship
+    await startShipHandler(options);
+    
+    console.log(chalk.green(`✅ Ship '${name}' restarted successfully`));
+    
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(chalk.red(`❌ Error restarting ship '${name}':`, errorMessage));
+    process.exit(1);
+  }
 };
 
 // List ships (moved from list.ts for consistency)
@@ -279,7 +225,7 @@ export const listShipsHandler = async () => {
     if (ship.exitCode !== null) {
       console.log(chalk.gray(`  💀 Exit code: ${ship.exitCode}`));
     }
-    console.log(chalk.gray(`  📁 Logs: ${process.env.BASE_DIRECTORY}/logs/${ship.name}/`));
+    console.log(chalk.gray(`  📁 Logs: ${PATHS.logs}/${ship.name}/`));
     console.log(); // Empty line for readability
   }
 };

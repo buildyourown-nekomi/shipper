@@ -1,5 +1,6 @@
 import chalk from "chalk";
 import { createDirectory, mountCrate } from "../core/core.js";
+import { PATHS } from "../constants.js";
 
 export async function createAndMountOverlay(
     upperdir_path: string, 
@@ -16,7 +17,7 @@ export async function createAndMountOverlay(
     console.log(chalk.yellow('🔧 Processing lower layers...'));
     for (let dir of lowerlayers) {
         console.log(chalk.cyan('📦 Processing layer:'), chalk.yellow(dir));
-        const dir_path = process.env.BASE_DIRECTORY + "/crates/" + dir;
+        const dir_path = `${PATHS.crates}/${dir}`;
         console.log(chalk.green('📁 Resolved layer path:'), chalk.cyan(dir_path));
         lowerdir += dir_path + ":";
     }

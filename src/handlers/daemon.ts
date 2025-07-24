@@ -5,6 +5,7 @@ import path from 'path';
 import { promisify } from 'util';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import { PATHS } from '../constants.js';
 
 const execAsync = promisify(exec);
 
@@ -17,16 +18,15 @@ interface DaemonOptions {
 }
 
 export const daemonHandler = async (options: DaemonOptions) => {
-  const baseDir = process.env.BASE_DIRECTORY || process.cwd();
-  const logDir = path.join(baseDir, 'logs');
-  const runDir = path.join(baseDir, 'run');
+  const logDir = PATHS.logs;
+  const pidDir = PATHS.pids;
   
   // Ensure directories exist
   await fs.ensureDir(logDir);
-  await fs.ensureDir(runDir);
+  await fs.ensureDir(pidDir);
   
   const defaultLogFile = path.join(logDir, 'monitor-daemon.log');
-  const defaultPidFile = path.join(runDir, 'monitor-daemon.pid');
+  const defaultPidFile = path.join(pidDir, 'monitor-daemon.pid');
   
   const logFile = options.logFile || defaultLogFile;
   const pidFile = options.pidFile || defaultPidFile;
@@ -90,7 +90,8 @@ async function startDaemon(interval: number, logFile: string, pidFile: string, d
       const child = spawn(command, args, {
         detached: true,
         stdio: 'ignore',
-        windowsHide: true
+        windowsHide: true,
+        shell: false,
       });
       
       child.unref();

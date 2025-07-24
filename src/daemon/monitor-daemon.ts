@@ -22,7 +22,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { eq } from 'drizzle-orm';
 import { parseArgs } from 'util';
-import xpipe from 'xpipe';
+import { PATHS } from '../constants.js';
 
 // Load environment variables
 dotenv.config({ quiet: true });
@@ -52,31 +52,57 @@ class MonitorDaemon {
       // Ensure log directory exists
       const logDir = path.dirname(this.config.logFile);
       fs.ensureDirSync(logDir);
-      
+
       // Create log stream
       this.logStream = fs.createWriteStream(this.config.logFile, { flags: 'a' });
     }
   }
 
-  private log(message: string, level: 'INFO' | 'ERROR' | 'WARN' = 'INFO') {
+  private log(message: string, level: 'INFO' | 'ERROR' | 'WARN' | 'SUCCESS' | 'DEPLOY' | 'STOP' | 'START' = 'INFO') {
     const timestamp = new Date().toISOString();
-    const logMessage = `[${timestamp}] [${level}] ${message}`;
+    let emoji = '';
+    let color = chalk.blue;
     
-    // Log to console
+    // Add emojis and colors based on log level
     switch (level) {
       case 'ERROR':
-        console.error(chalk.red(logMessage));
+        emoji = '❌';
+        color = chalk.red;
         break;
       case 'WARN':
-        console.warn(chalk.yellow(logMessage));
+        emoji = '⚠️ ';
+        color = chalk.yellow;
+        break;
+      case 'SUCCESS':
+        emoji = '✅';
+        color = chalk.green;
+        break;
+      case 'DEPLOY':
+        emoji = '🚀';
+        color = chalk.cyan;
+        break;
+      case 'START':
+        emoji = '▶️ ';
+        color = chalk.green;
+        break;
+      case 'STOP':
+        emoji = '⏹️ ';
+        color = chalk.red;
         break;
       default:
-        console.log(chalk.blue(logMessage));
+        emoji = 'ℹ️ ';
+        color = chalk.blue;
     }
     
-    // Log to file if configured
+    const logMessage = `[${timestamp}] [${level}] ${emoji} ${message}`;
+    const fileLogMessage = `[${timestamp}] [${level}] ${message}`; // No emoji for file logs
+
+    // Log to console with emoji and color
+    console.log(color(logMessage));
+
+    // Log to file if configured (without emoji to keep file logs clean)
     if (this.logStream) {
-      this.logStream.write(logMessage + '\n');
+      this.logStream.write(fileLogMessage + '\n');
     }
   }
 
@@ -135,52 +161,119 @@ class MonitorDaemon {
       return;
     }
 
-    this.log(`Starting Keelan Monitor Daemon (PID: ${process.pid})`);
+    this.log(`Starting Keelan Monitor Daemon (PID: ${process.pid})`, 'START');
     this.log(`Monitoring interval: ${this.config.interval} seconds`);
-    
+
     await this.writePidFile();
-    
+
     this.isRunning = true;
-    
+
     // Run initial monitoring check
     await this.runMonitoringCycle();
-    
+
     // Set up periodic monitoring
     this.monitorInterval = setInterval(async () => {
       await this.runMonitoringCycle();
     }, this.config.interval * 1000);
-    
-    this.log('Monitor daemon started successfully');
+
+    this.log('Monitor daemon started successfully', 'SUCCESS');
     this.setupSocketServer();
   }
 
   private async runMonitoringCycle() {
     try {
-      this.log('Running monitoring cycle...');
-      await monitorAllShips();
-      this.log('Monitoring cycle completed');
-    } catch (error) {
-      this.log(`Error in monitoring cycle: ${error}`, 'ERROR');
+      const ships = await db.select().from(keelanShips).where(eq(keelanShips.status, 'running'));
+      
+      if (ships.length > 0) {
+        this.log(`Monitoring ${ships.length} running ship(s)`);
+      }
+      
+      for (const ship of ships) {
+        if (ship.processId && !isProcessRunning(ship.processId)) {
+          // Process has stopped, update database
+          await db.update(keelanShips)
+            .set({ 
+              status: 'stopped',
+              stoppedAt: new Date().toISOString()
+            })
+            .where(eq(keelanShips.id, ship.id));
+          
+          this.log(`Ship '${ship.name}' (PID: ${ship.processId}) has stopped unexpectedly`, 'WARN');
+        }
+      }
+    } catch (error: any) {
+      this.log(`Error during monitoring cycle: ${error.message}`, 'ERROR');
     }
+  }
+
+  private parseCommand(command: string): { executable: string; args: string[] } {
+    // Split command string into executable and arguments
+    // Handle quoted arguments properly
+    const parts = [];
+    let current = '';
+    let inQuotes = false;
+    let quoteChar = '';
+    
+    for (let i = 0; i < command.length; i++) {
+      const char = command[i];
+      
+      if ((char === '"' || char === "'") && !inQuotes) {
+        inQuotes = true;
+        quoteChar = char;
+      } else if (char === quoteChar && inQuotes) {
+        inQuotes = false;
+        quoteChar = '';
+      } else if (char === ' ' && !inQuotes) {
+        if (current.trim()) {
+          parts.push(current.trim());
+          current = '';
+        }
+      } else {
+        current += char;
+      }
+    }
+    
+    if (current.trim()) {
+      parts.push(current.trim());
+    }
+    
+    const executable = parts[0] || '';
+    const args = parts.slice(1);
+    
+    return { executable, args };
   }
 
   private handleSocketData = async (socket: net.Socket, data: Buffer) => {
     try {
       const message = JSON.parse(data.toString());
+
       if (message.type === 'deploy') {
         const { shipID, command, logDir } = message;
+        this.log(`Deploying ship '${shipID}' with command: ${command}`, 'DEPLOY');
+        
         await fs.ensureDir(logDir);
         const out = fs.openSync(`${logDir}/out.log`, 'a');
         const err = fs.openSync(`${logDir}/err.log`, 'a');
-        const child = spawn(command, { 
-          shell: true, 
+        
+        const { executable, args } = this.parseCommand(command);
+        this.log(`Executing: ${executable} ${args.join(' ')}`);
+        
+        const child = spawn(executable, args, {
           stdio: ['ignore', out, err],
           detached: true,
-          windowsHide: true 
+          windowsHide: true,
+          env: { ...process.env, PATH: process.env.PATH + ':/usr/sbin:/sbin' }
         });
         const pid = child.pid;
         fs.closeSync(out);
         fs.closeSync(err);
+        
+        if (pid) {
+          this.log(`Ship '${shipID}' deployed successfully with PID: ${pid}`, 'SUCCESS');
+        } else {
+          this.log(`Failed to get PID for ship '${shipID}'`, 'ERROR');
+        }
+        
         await db.insert(keelanShips).values({
           name: shipID,
           imageId: message.imageId,
@@ -192,79 +285,193 @@ class MonitorDaemon {
         });
         setupProcessMonitoring(child, shipID, pid);
         socket.write(JSON.stringify({ status: 'success', pid }));
+      } else if (message.type === 'start') {
+        const { shipName, command, logDir, imageId } = message;
+        this.log(`Starting ship '${shipName}' with command: ${command}`, 'START');
+        
+        await fs.ensureDir(logDir);
+        const out = fs.openSync(`${logDir}/out.log`, 'a');
+        const err = fs.openSync(`${logDir}/err.log`, 'a');
+        
+        const { executable, args } = this.parseCommand(command);
+        this.log(`Executing: ${executable} ${args.join(' ')}`);
+        
+        const child = spawn(executable, args, {
+          stdio: ['ignore', out, err],
+          detached: true,
+          windowsHide: true,
+          env: { ...process.env, PATH: process.env.PATH + ':/usr/sbin:/sbin' }
+        });
+        const pid = child.pid;
+        fs.closeSync(out);
+        fs.closeSync(err);
+        
+        if (pid) {
+          this.log(`Ship '${shipName}' started successfully with PID: ${pid}`, 'SUCCESS');
+        } else {
+          this.log(`Failed to get PID for ship '${shipName}'`, 'ERROR');
+        }
+
+        // Update existing ship record
+        await db.update(keelanShips)
+          .set({
+            processId: pid,
+            status: "running",
+            startedAt: new Date().toISOString(),
+            stoppedAt: null,
+            exitCode: null
+          })
+          .where(eq(keelanShips.name, shipName))
+          .execute();
+
+        setupProcessMonitoring(child, shipName, pid);
+        socket.write(JSON.stringify({ status: 'success', pid }));
+      } else if (message.type === 'stop') {
+        const { shipName, force = false } = message;
+        this.log(`Stopping ship '${shipName}'`, 'STOP');
+
+        // Get ship data from database
+        const shipData = await db.select().from(keelanShips).where(eq(keelanShips.name, shipName)).limit(1);
+        if (shipData.length === 0) {
+          this.log(`Ship '${shipName}' not found`, 'WARN');
+          socket.write(JSON.stringify({ status: 'error', message: 'Ship not found' }));
+          return;
+        }
+
+        const ship = shipData[0];
+        if (!ship.processId || ship.status !== 'running') {
+          // Check if process is actually running
+          if (ship.processId && !isProcessRunning(ship.processId)) {
+            // Process is not running, just update database
+            this.log(`Ship '${shipName}' was already stopped, updating status`, 'INFO');
+            await db.update(keelanShips)
+              .set({
+                status: "stopped",
+                stoppedAt: new Date().toISOString()
+              })
+              .where(eq(keelanShips.name, shipName))
+              .execute();
+            socket.write(JSON.stringify({ status: 'success', message: 'Ship was already stopped, updated status' }));
+            return;
+          }
+          this.log(`Ship '${shipName}' is not running`, 'WARN');
+          socket.write(JSON.stringify({ status: 'error', message: 'Ship is not running' }));
+          return;
+        }
+
+        try {
+          // Try graceful shutdown first
+          this.log(`Sending SIGTERM to PID: ${ship.processId}`);
+          process.kill(ship.processId, 'SIGTERM');
+
+          // Wait for graceful shutdown
+          await new Promise(resolve => setTimeout(resolve, 2000));
+
+          // Check if process is still running
+          if (isProcessRunning(ship.processId)) {
+            if (force) {
+              // Force kill if still running and force is requested
+              this.log(`Force killing ship '${shipName}' with SIGKILL`, 'WARN');
+              process.kill(ship.processId, 'SIGKILL');
+            } else {
+              this.log(`Ship '${shipName}' did not stop gracefully`, 'WARN');
+              socket.write(JSON.stringify({ status: 'error', message: 'Ship did not stop gracefully. Use --force to kill it.' }));
+              return;
+            }
+          }
+
+          // Update database
+          await db.update(keelanShips)
+            .set({
+              status: "stopped",
+              stoppedAt: new Date().toISOString(),
+              exitCode: null
+            })
+            .where(eq(keelanShips.name, shipName))
+            .execute();
+
+          this.log(`Ship '${shipName}' stopped successfully`, 'SUCCESS');
+          socket.write(JSON.stringify({ status: 'success', message: 'Ship stopped successfully' }));
+        } catch (error: any) {
+          if (error.code === 'ESRCH') {
+            // Process was already stopped
+            this.log(`Ship '${shipName}' was already stopped`, 'INFO');
+            await db.update(keelanShips)
+              .set({
+                status: "stopped",
+                stoppedAt: new Date().toISOString()
+              })
+              .where(eq(keelanShips.name, shipName))
+              .execute();
+            socket.write(JSON.stringify({ status: 'success', message: 'Ship was already stopped' }));
+          } else {
+            this.log(`Failed to stop ship '${shipName}': ${error.message}`, 'ERROR');
+            socket.write(JSON.stringify({ status: 'error', message: `Failed to stop ship: ${error.message}` }));
+          }
+        }
       }
-    } catch (error: any) {
+    } catch(error: any) {
       socket.write(JSON.stringify({ status: 'error', message: error.message }));
     }
   };
 
   private createSocketServer(): net.Server {
-    return net.createServer((socket) => {
-      socket.on('data', (data) => this.handleSocketData(socket, data));
-    });
-  }
+  return net.createServer((socket) => {
+    socket.on('data', (data) => this.handleSocketData(socket, data));
+  });
+}
 
   private setupSocketServer() {
-    // Try named pipes first, fallback to TCP if not supported (e.g., WSL2)
-    const pipePath = xpipe.eq('keelan-daemon');
-    this.socketServer = this.createSocketServer();
-    
-    // Try named pipe first
-    this.socketServer.listen(pipePath, () => {
-      this.log(`Socket server listening on named pipe: ${pipePath}`);
-    });
-    
-    // Handle named pipe errors (e.g., WSL2 doesn't support them)
-    this.socketServer.on('error', (error: any) => {
-      if (error.code === 'ENOTSUP' || error.code === 'ENOTFOUND') {
-        this.log('Named pipes not supported, falling back to TCP socket on port 9876', 'WARN');
-        // Close the failed server
-        this.socketServer?.close();
-        
-        // Create new TCP server with the same handler
-        this.socketServer = this.createSocketServer();
-        
-        // Listen on TCP port
-        this.socketServer.listen(9876, 'localhost', () => {
-          this.log('Socket server listening on TCP port 9876');
-        });
-      } else {
-        this.log(`Socket server error: ${error.message}`, 'ERROR');
-        throw error;
-      }
-    });
-  }
+  this.socketServer = this.createSocketServer();
+
+  // Listen on TCP port
+  this.socketServer.listen(9876, 'localhost', () => {
+    this.log('Socket server listening on TCP port 9876', 'SUCCESS');
+  });
+
+  // Handle errors
+  this.socketServer.on('error', (error: any) => {
+    this.log(`Socket server error: ${error.message}`, 'ERROR');
+    throw error;
+  });
+}
 
   async stop() {
-    if (!this.isRunning) {
-      return;
-    }
-
-    this.log('Stopping monitor daemon...');
-    this.isRunning = false;
-    
-    // Clear monitoring interval
-    if (this.monitorInterval) {
-      clearInterval(this.monitorInterval);
-      this.monitorInterval = undefined;
-    }
-    
-    // Close log stream
-    if (this.logStream) {
-      this.logStream.end();
-    }
-    
-    // Remove PID file
-    await this.removePidFile();
-    
-    this.log('Monitor daemon stopped');
-    if (this.socketServer) {
-      if (this.socketServer.listening) {
-        this.socketServer.close();
-      }
-    }
-    process.exit(0);
+  if (!this.isRunning) {
+    this.log('Daemon is not running', 'WARN');
+    return;
   }
+
+  this.log('Stopping monitor daemon...', 'STOP');
+  this.isRunning = false;
+
+  // Clear monitoring interval
+  if (this.monitorInterval) {
+    clearInterval(this.monitorInterval);
+    this.monitorInterval = undefined;
+    this.log('Monitoring interval cleared');
+  }
+
+  // Close log stream
+  if (this.logStream) {
+    this.logStream.end();
+    this.log('Log stream closed');
+  }
+
+  // Close socket server
+  if (this.socketServer) {
+    if (this.socketServer.listening) {
+      this.socketServer.close();
+      this.log('Socket server closed');
+    }
+  }
+
+  // Remove PID file
+  await this.removePidFile();
+
+  this.log('Monitor daemon stopped successfully', 'SUCCESS');
+  process.exit(0);
+}
 }
 
 // Parse command line arguments
@@ -292,7 +499,7 @@ function parseCommandLineArgs(): DaemonConfig {
       },
       allowPositionals: false
     });
-    
+
     return {
       interval: values.interval ? parseInt(values.interval) : defaultConfig.interval,
       logFile: values['log-file'] || defaultConfig.logFile,
@@ -323,23 +530,18 @@ function parseCommandLineArgs(): DaemonConfig {
 // Main execution
 if (import.meta.url === `file://${process.argv[1]}`) {
   const config = parseCommandLineArgs();
-  
+
   // Set default log file if not specified
   if (!config.logFile) {
-    const logDir = process.env.BASE_DIRECTORY ? 
-      path.join(process.env.BASE_DIRECTORY, 'logs') : 
-      path.join(process.cwd(), 'logs');
-    config.logFile = path.join(logDir, 'monitor-daemon.log');
+    config.logFile = path.join(PATHS.logs, 'monitor-daemon.log');
   }
-  
+
   // Set default PID file if not specified
   if (!config.pidFile) {
-    const pidDir = process.env.BASE_DIRECTORY ? 
-      path.join(process.env.BASE_DIRECTORY, 'run') : 
-      path.join(process.cwd(), 'run');
+    const pidDir = PATHS.pids;
     config.pidFile = path.join(pidDir, 'monitor-daemon.pid');
   }
-  
+
   const daemon = new MonitorDaemon(config);
   daemon.start().catch((error) => {
     console.error(chalk.red('Failed to start daemon:'), error);
@@ -365,7 +567,7 @@ function setupProcessMonitoring(child: ChildProcess, shipID: string, pid: number
       } else {
         console.log(chalk.yellow(`⚠️  Process ${pid} exited with code ${code}`));
       }
-      
+
       await db.update(keelanShips)
         .set({
           status: "stopped",
@@ -383,7 +585,7 @@ function setupProcessMonitoring(child: ChildProcess, shipID: string, pid: number
   child.on('error', async (err: any) => {
     try {
       console.error(chalk.red(`❌ Process ${pid} encountered an error:`, err.message));
-      
+
       await db.update(keelanShips)
         .set({
           status: "error",
@@ -402,7 +604,7 @@ function setupProcessMonitoring(child: ChildProcess, shipID: string, pid: number
     try {
       // Check if process is still running using the PID
       const isRunning = await isProcessRunning(pid);
-      
+
       if (!isRunning) {
         // Process died without triggering close event
         await db.update(keelanShips)
@@ -413,7 +615,7 @@ function setupProcessMonitoring(child: ChildProcess, shipID: string, pid: number
           })
           .where(eq(keelanShips.name, shipID))
           .execute();
-        
+
         clearInterval(healthCheckInterval);
       }
     } catch (error) {
@@ -430,13 +632,11 @@ function setupProcessMonitoring(child: ChildProcess, shipID: string, pid: number
 /**
  * Check if a process is still running by PID
  */
-async function isProcessRunning(pid: number): Promise<boolean> {
+function isProcessRunning(pid: number): boolean {
   try {
-    // On Unix-like systems, sending signal 0 checks if process exists
     process.kill(pid, 0);
     return true;
   } catch (error: any) {
-    // ESRCH means process doesn't exist
     return error.code !== 'ESRCH';
   }
 }
@@ -455,7 +655,7 @@ async function monitorAllShips() {
     for (const ship of runningShips) {
       if (ship.processId) {
         const isRunning = await isProcessRunning(ship.processId);
-        
+
         if (!isRunning) {
           // Update ship status if process is no longer running
           await db.update(keelanShips)
@@ -466,7 +666,7 @@ async function monitorAllShips() {
             })
             .where(eq(keelanShips.id, ship.id))
             .execute();
-          
+
           console.log(chalk.yellow(`📋 Updated status for ship ${ship.name}: process ${ship.processId} no longer running`));
         }
       }
