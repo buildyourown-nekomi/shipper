@@ -87,24 +87,14 @@ It feels like Docker, but runs like native.
    cd shipper
    ```
 
-2. Install dependencies:
+2. Make install.sh executable:
    ```bash
-   npm install
+   chmod +x install.sh
    ```
 
-3. Run database migration:
+3. Run install.sh:
    ```bash
-   npm run migrate
-   ```
-
-4. Build the project:
-   ```bash
-   npm run build
-   ```
-
-5. Start using Keelan:
-   ```bash
-   npx keelan
+   ./install.sh
    ```
 
 ---
