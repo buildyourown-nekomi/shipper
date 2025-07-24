@@ -27,21 +27,21 @@ export const buildHandler = async (options: BuildOptions) => {
     process.chdir(options.workingDirectory);
   }
 
-  if(!options.name || options.name.length == 0) {
-    console.error(chalk.red('❌ Error: Name not specified.'));
+  if (!options.name || options.name.length == 0) {
+    console.error(chalk.red('❌ Error: Name not specified - bestie, we need a name to work with fr.'));
     process.exit(1);
   }
 
-  if(await checkName(options.name)) {
-    console.error(chalk.yellow('⚠️  Error: Name already exists.'));
+  if (await checkName(options.name)) {
+    console.error(chalk.yellow('⚠️  Error: Name already exists - that name is already taken bestie, no cap.'));
     // Delete the crate if it exists
     await removeCrate(options.name);
-    console.log(chalk.green('✅ Crate deleted successfully.'));
+    console.log(chalk.green('✅ Crate deleted successfully and it\'s giving fresh start energy, periodt.'));
   }
 
   if (!fs_original.existsSync('Keelanfile.yml')) {
-    console.error(chalk.red('❌ Error: Keelanfile.yml not found.'));
-    console.error(chalk.red('❌ Please run "Keelan init" to create a new Keelanfile.yml.'));
+    console.error(chalk.red('❌ Error: Keelanfile.yml not found - bestie, where\'s the config at?'));
+    console.error(chalk.red('❌ Please run "Keelan init" to create a new Keelanfile.yml - we need that file to work our magic fr.'));
     process.exit(1);
   }
 
@@ -57,14 +57,14 @@ export const buildHandler = async (options: BuildOptions) => {
   // 6. Save the image to the database (save the upperdir (aka name) to the database)
 
   // 1. Propagate layer
-  console.log(chalk.magenta('🚀 Starting build process for:'), chalk.cyan(options.name));
+  console.log(chalk.magenta('🚀 Starting build process for bestie:'), chalk.cyan(options.name));
   console.log(chalk.magenta('🐳 Base image:'), chalk.cyan(config.build_context.base_image));
-  
+
   const image = config.build_context.base_image;
-  console.log(chalk.yellow('🔍 Resolving base image layers...'));
+  console.log(chalk.yellow('🔍 Resolving base image layers like we\'re solving a puzzle...'));
   const lowerlayers = await resolveLayer(image);
-  console.log(chalk.green('✅ Successfully resolved'), chalk.cyan(lowerlayers.length), chalk.green('layers'));
-  
+  console.log(chalk.green('✅ Successfully resolved'), chalk.cyan(lowerlayers.length), chalk.green('layers and they\'re all accounted for bestie'));
+
   const upperdir = options.name;
   const upperdir_path = `${PATHS.crates}/${upperdir}`;
 
@@ -74,63 +74,63 @@ export const buildHandler = async (options: BuildOptions) => {
   await createAndMountOverlay(upperdir_path, lowerlayers, workdir_path, merge_path);
 
   // Update the database
-  console.log(chalk.yellow('💾 Updating database...'));
+  console.log(chalk.yellow('💾 Updating database like we\'re saving our progress bestie...'));
   // Write the image file to the database
   const content = fs.readFileSync("Keelanfile.yml", 'utf8');
   const keelanFile = await writeCrateFile(options.name, content);
-  console.log(chalk.green('✅ Successfully updated database.'));
+  console.log(chalk.green('✅ Successfully updated database and it\'s giving organized vibes bestie.'));
 
   // Setup crate (later)
-  console.log(chalk.yellow('📦 Setting up crate...'));
+  console.log(chalk.yellow('📦 Setting up crate like we\'re preparing for the main event bestie...'));
 
   // await sleep(3000);
   try {
     for (let step of config.build_steps) {
-      console.log(chalk.blue('🔨 Processing build step:'), chalk.yellow(step.action));
+      console.log(chalk.blue('🔨 About to build this crate like we\'re on a construction reality show bestie:'), chalk.yellow(step.action));
       // await sleep(1000);
       if (step.action == "execute_command") {
-        if(!step.command || step.command.length == 0) {
-          console.error(chalk.red('❌ Error: Command not specified.'));
+        if (!step.command || step.command.length == 0) {
+          console.error(chalk.red('❌ Error: Command not specified - bestie, we need to know what to run fr.'));
           process.exit(1);
         }
-        console.log(chalk.magenta('🏃 Running command:'), chalk.cyan(step.description), chalk.magenta('with:'), chalk.cyan(step.command.join(" ")));
+        console.log(chalk.magenta('🏃 Running command bestie:'), chalk.cyan(step.description), chalk.magenta('with:'), chalk.cyan(step.command.join(" ")));
         await runCommandInCrate(step.command.join(" "), options.name);
       } else if (step.action == "copy_files") {
-        if(!step.source || step.source.length == 0) {
-          console.error(chalk.red('❌ Error: Source not specified.'));
+        if (!step.source || step.source.length == 0) {
+          console.error(chalk.red('❌ Error: Source not specified - bestie, where are we copying from tho?'));
           process.exit(1);
         }
-        if(!step.destination || step.destination.length == 0) {
-          console.error(chalk.red('❌ Error: Destination not specified.'));
+        if (!step.destination || step.destination.length == 0) {
+          console.error(chalk.red('❌ Error: Destination not specified - fam, where should this go bestie?'));
           process.exit(1);
         }
 
 
-        console.log(chalk.magenta('📋 Copying files:'), chalk.cyan(step.source), chalk.magenta('to:'), chalk.cyan(step.destination));
+        console.log(chalk.magenta('📋 Copying files bestie:'), chalk.cyan(step.source), chalk.magenta('to:'), chalk.cyan(step.destination));
 
         // Destination directory
         const destination_dir = merge_path + step.destination;
         if (!fs_original.existsSync(destination_dir)) {
-          console.log(chalk.yellow('📁 Destination directory does not exist. Creating it...'));
+          console.log(chalk.yellow('📁 Destination directory does not exist. Creating it like we\'re building from scratch bestie...'));
           fs_original.mkdirSync(destination_dir, { recursive: true });
         }
 
         fs.copySync(step.source, destination_dir);
-        console.log(chalk.green('✅ Files copied successfully.'));
+        console.log(chalk.green('✅ Files copied successfully and they\'re in their new home bestie.'));
       }
     }
   } catch (error: any) {
     console.log(error)
-    console.log(chalk.red("❌ Build failed. Please check the logs for more information."));
+    console.log(chalk.red("❌ Crate build failed and it's giving broken dreams energy bestie. Please check the logs for more tea."));
     // Clean up the crate
-    console.log(chalk.yellow('🧹 Cleaning up crate...'));
+    console.log(chalk.yellow('🧹 Cleaning up crate like we\'re Marie Kondo-ing this space bestie...'));
     // await sleep(1000);
     await removeCrateHandler({ name: options.name, force: true, recursive: true });
     process.exit(1);
   }
 
   // Gzip the crate (upperdir)
-  console.log(chalk.yellow('📦 Compressing crate...'));
+  console.log(chalk.yellow('📦 Compressing crate like we\'re packing for a trip bestie...'));
 
   const archivePath = `${PATHS.crates}/${options.name}.tar.gz`;
 
@@ -138,13 +138,13 @@ export const buildHandler = async (options: BuildOptions) => {
 
   const { digest, fileSize } = await getFileDigest(archivePath);
 
-  console.log(chalk.green('✅ Crate compressed successfully. Archive path:'), chalk.cyan(archivePath));
+  console.log(chalk.green('✅ Crate compressed successfully and it\'s giving compact vibes bestie. Archive path:'), chalk.cyan(archivePath));
   console.log(chalk.yellow('🔑 SHA256 Digest:'), chalk.cyan(digest));
   console.log(chalk.magenta('📊 File Size:'), chalk.cyan(fileSize));
-  
+
   // console.log(keelanFile)
 
-  console.log(chalk.yellow('💾 Writing crate to database...'));
+  console.log(chalk.yellow('💾 Writing crate to database like we\'re saving our masterpiece bestie...'));
   // Create database for crate
   await writeCrate(
     options.name,
@@ -153,21 +153,21 @@ export const buildHandler = async (options: BuildOptions) => {
     fileSize,
     digest,
     keelanFile[0].id);
-  console.log(chalk.green('✅ Crate written to database.'));
+  console.log(chalk.green('✅ Crate written to database and it\'s officially documented bestie.'));
 
   // Unmount the crate
-  console.log(chalk.yellow('🧹 Unmounting crate...'));
+  console.log(chalk.yellow('🧹 Unmounting crate like we\'re cleaning up after the party bestie...'));
   unmountCrate(merge_path);
-  console.log(chalk.green('✅ Crate unmounted successfully.'));
+  console.log(chalk.green('✅ Crate unmounted successfully and everything\'s back to normal bestie.'));
 
-  console.log(chalk.green('✅ Build completed successfully.'));
+  console.log(chalk.green('✅ Crate built successfully and it\'s absolutely serving functionality bestie.'));
 
 };
 
 async function runCommandInCrate(command: string, crate: string) {
   // Run the command in the crate
   const crate_path = `${PATHS.crates}/${crate}_merge`;
-  console.log(chalk.magenta('🏃 Running command in crate:'), chalk.cyan(crate_path));
+  console.log(chalk.magenta('🏃 Running command in crate bestie:'), chalk.cyan(crate_path));
   console.log(chalk.blue('🔧 Command:'), chalk.yellow(command));
 
   const command_w_proot = `chroot ${crate_path} ${command}`;
@@ -175,10 +175,10 @@ async function runCommandInCrate(command: string, crate: string) {
   // Execute the command
   try {
     await executeCommandRealtime(command_w_proot);
-    console.log(chalk.green('✅ Command executed successfully.'));
+    console.log(chalk.green('✅ Command executed successfully and it\'s giving success vibes bestie.'));
   } catch (error: any) {
-    console.error(chalk.red('❌ Error executing command:'), chalk.yellow(command));
-    console.error(chalk.red('❌ Error:'), chalk.yellow(error.toString()));
+    console.error(chalk.red('❌ Error executing command - bestie, something went wrong fr:'), chalk.yellow(command));
+    console.error(chalk.red('❌ Error bestie:'), chalk.yellow(error.toString()));
     throw error;
   }
 }
@@ -189,7 +189,7 @@ async function executeCommandRealtime(commandString: string) {
   const command = parts[0];
   const args = parts.slice(1);
 
-  console.log(chalk.magenta('🚀 Running command realtime:'), chalk.cyan(command), chalk.magenta('with args:'), chalk.cyan(args.toString()));
+  console.log(chalk.magenta('🚀 Running command realtime like we\'re watching it happen bestie:'), chalk.cyan(command), chalk.magenta('with args:'), chalk.cyan(args.toString()));
 
   return new Promise((resolve, reject) => {
     // Spawn the child process

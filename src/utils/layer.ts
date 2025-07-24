@@ -14,6 +14,7 @@ export async function createAndMountOverlay(
 
     let lowerdir = ""
 
+    console.log(chalk.blue(`🔧 About to create and mount overlay like we're building a digital sandwich:`));
     console.log(chalk.yellow('🔧 Processing lower layers...'));
     for (let dir of lowerlayers) {
         console.log(chalk.cyan('📦 Processing layer:'), chalk.yellow(dir));
@@ -24,10 +25,10 @@ export async function createAndMountOverlay(
 
     lowerdir = lowerdir.slice(0, -1); // Remove the last colon
     console.log(chalk.magenta('⚙️  Layer configuration:'));
-    console.log(chalk.cyan('🔽 Lower layers:'), chalk.yellow(lowerdir));
-    console.log(chalk.cyan('🔼 Upper directory:'), chalk.yellow(upperdir_path));
-    console.log(chalk.cyan('🔧 Work directory:'), chalk.yellow(workdir_path));
-    console.log(chalk.cyan('📂 Merge directory:'), chalk.yellow(merge_path));
+    console.log(chalk.cyan('🔽 Lower layers (the foundation):'), chalk.yellow(lowerdir));
+    console.log(chalk.cyan('🔼 Upper directory (the fresh stuff):'), chalk.yellow(upperdir_path));
+    console.log(chalk.cyan('🔧 Work directory (where the magic happens):'), chalk.yellow(workdir_path));
+    console.log(chalk.cyan('📂 Merge directory (the final result):'), chalk.yellow(merge_path));
 
     // Mounting the directory
     mountCrate(lowerdir, upperdir_path, workdir_path, merge_path);

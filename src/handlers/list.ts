@@ -10,16 +10,16 @@ interface ListOptions {
 }
 
 async function listCrates() {
-  console.log(chalk.blue('📦 Crates:'));
+  console.log(chalk.blue('📦 Here are all our crates and they\'re absolutely iconic:'));
   const crates = await db.select().from(keelanCrate);
   for (const crate of crates) {
-    console.log(chalk.blue(`- ${crate.name}`));
+    console.log(chalk.blue(`- ${crate.name} (bestie is serving container energy)`));
     console.log(chalk.gray(`  🔗 Image: ${crate.baseImage}`));
   }
 }
 
 async function listShips() {
-  console.log(chalk.blue('🚢 Ships:'));
+  console.log(chalk.blue('🚢 Ships are about to serve status updates:'));
   const ships = await db.select({
     name: keelanShips.name,
     imageName: keelanCrate.name,
@@ -32,7 +32,7 @@ async function listShips() {
   .leftJoin(keelanCrate, eq(keelanShips.imageId, keelanCrate.id));
   
   for (const ship of ships) {
-    console.log(chalk.blue(`- ${ship.name}`));
+    console.log(chalk.blue(`- ${ship.name} (bestie is serving ship energy)`));
     console.log(chalk.gray(`  🔗 Image: ${ship.imageName || 'Unknown'}`));
     console.log(chalk.gray(`  🟢 Status: ${ship.status}`));
     console.log(chalk.gray(`  📅 Started: ${ship.startedAt}`));
@@ -43,13 +43,13 @@ async function listShips() {
 }
 
 export const listHandler = async (options: ListOptions) => {
-  console.log(chalk.cyan(`📕 Listing ${options.type}...`));
+  console.log(chalk.cyan(`📕 About to list ${options.type} and it\'s giving organized vibes...`));
   if (options.all) {
-    console.log(chalk.yellow(' ⚠️  Listing all items'));
+    console.log(chalk.yellow(' ⚠️  Listing all items - we\'re going full send'));
     await listCrates();
     await listShips();
   } else {
-    console.log(chalk.green(`Items of type ${options.type} would be listed here`));
+    console.log(chalk.green(`Items of type ${options.type} are about to serve looks here`));
     if (options.type === 'crate') {
       await listCrates();
     } else if (options.type === 'ships') {

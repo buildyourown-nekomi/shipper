@@ -49,7 +49,7 @@ export const daemonHandler = async (options: DaemonOptions) => {
       await startDaemon(interval, logFile, pidFile, options.detach);
       break;
     default:
-      console.error(chalk.red('❌ Invalid daemon action. Use: start, stop, status, or restart'));
+      console.error(chalk.red('❌ Invalid daemon action bestie. Use: start, stop, status, or restart'));
       process.exit(1);
   }
 };
@@ -58,11 +58,11 @@ async function startDaemon(interval: number, logFile: string, pidFile: string, d
   try {
     // Check if daemon is already running
     if (await isDaemonRunning(pidFile)) {
-      console.log(chalk.yellow('⚠️  Daemon is already running'));
+      console.log(chalk.yellow('⚠️  Daemon is already running bestie - no need to start what\'s already awake'));
       return;
     }
     
-    console.log(chalk.cyan('🚀 Starting Keelan Monitor Daemon...'));
+    console.log(chalk.cyan('🚀 Starting Keelan Monitor Daemon bestie...'));
     
     // Path to the daemon script
     const __filename = fileURLToPath(import.meta.url);
@@ -96,23 +96,23 @@ async function startDaemon(interval: number, logFile: string, pidFile: string, d
       
       child.unref();
       
-      console.log(chalk.gray(`🚀 Daemon started with PID: ${child.pid}`));
+      console.log(chalk.gray(`🚀 Daemon started with PID: ${child.pid} bestie`));
       // Wait a moment to check if it started successfully
       await new Promise(resolve => setTimeout(resolve, 30000));
       
       if (await isDaemonRunning(pidFile)) {
-        console.log(chalk.green('✅ Daemon started successfully'));
+        console.log(chalk.green('✅ Daemon started successfully and it\'s giving management vibes - ready to handle your ships!'));
         console.log(chalk.gray(`📁 Log file: ${logFile}`));
         console.log(chalk.gray(`📋 PID file: ${pidFile}`));
         console.log(chalk.gray(`⏱️  Monitoring interval: ${interval} seconds`));
       } else {
-        console.error(chalk.red('❌ Failed to start daemon'));
+        console.error(chalk.red('❌ Failed to start daemon bestie'));
         process.exit(1);
       }
     } else {
       // Start daemon in foreground (for debugging)
-      console.log(chalk.blue('🔍 Starting daemon in foreground mode...'));
-      console.log(chalk.gray('Press Ctrl+C to stop'));
+      console.log(chalk.blue('🔍 Starting daemon in foreground mode bestie...'));
+console.log(chalk.gray('Press Ctrl+C to stop'));
       
       const child = spawn(command, args, {
         stdio: 'inherit'
@@ -120,15 +120,15 @@ async function startDaemon(interval: number, logFile: string, pidFile: string, d
       
       child.on('exit', (code) => {
         if (code === 0) {
-          console.log(chalk.green('✅ Daemon stopped gracefully'));
+          console.log(chalk.green('✅ Daemon stopped gracefully bestie'));
         } else {
-          console.error(chalk.red(`❌ Daemon exited with code ${code}`));
+          console.error(chalk.red(`❌ Daemon exited with code ${code} bestie`));
         }
       });
     }
     
   } catch (error) {
-    console.error(chalk.red('❌ Error starting daemon:'), error);
+    console.error(chalk.red('❌ Daemon said "nah fam" and refused to start:'), error);
     process.exit(1);
   }
 }
@@ -136,7 +136,7 @@ async function startDaemon(interval: number, logFile: string, pidFile: string, d
 async function stopDaemon(pidFile: string) {
   try {
     if (!(await fs.pathExists(pidFile))) {
-      console.log(chalk.yellow('⚠️  Daemon is not running (no PID file found)'));
+      console.log(chalk.yellow('⚠️  Daemon is not running bestie - it\'s already taking a nap'));
       return;
     }
     
@@ -144,12 +144,12 @@ async function stopDaemon(pidFile: string) {
     const pid = parseInt(pidStr.trim());
     
     if (isNaN(pid)) {
-      console.error(chalk.red('❌ Invalid PID in PID file'));
+      console.error(chalk.red('❌ PID file is giving corrupted energy (invalid data)'));
       await fs.remove(pidFile);
       return;
     }
     
-    console.log(chalk.cyan(`🛑 Stopping daemon (PID: ${pid})...`));
+    console.log(chalk.cyan(`🛑 Time to tell daemon ${pid} to clock out bestie...`));
     
     try {
       // Send SIGTERM to gracefully stop the daemon
@@ -176,18 +176,18 @@ async function stopDaemon(pidFile: string) {
       }
       
       if (attempts >= maxAttempts) {
-        console.log(chalk.yellow('⚠️  Daemon did not stop gracefully, forcing termination...'));
+        console.log(chalk.yellow('⚠️  Daemon is being stubborn so we\'re forcing it to stop (not very demure)...'));
         process.kill(pid, 'SIGKILL');
       }
       
       // Clean up PID file
       await fs.remove(pidFile);
       
-      console.log(chalk.green('✅ Daemon stopped successfully'));
+      console.log(chalk.green('✅ Daemon stopped successfully and it\'s giving peaceful sleep vibes'));
       
     } catch (error: any) {
       if (error.code === 'ESRCH') {
-        console.log(chalk.yellow('⚠️  Daemon process not found (may have already stopped)'));
+        console.log(chalk.yellow('⚠️  Daemon ghosted us (process already stopped)'));
         await fs.remove(pidFile);
       } else {
         throw error;
@@ -195,19 +195,19 @@ async function stopDaemon(pidFile: string) {
     }
     
   } catch (error) {
-    console.error(chalk.red('❌ Error stopping daemon:'), error);
+    console.error(chalk.red('❌ Daemon is being stubborn and won\'t stop (not very demure):'), error);
     process.exit(1);
   }
 }
 
 async function getDaemonStatus(pidFile: string, logFile: string) {
   try {
-    console.log(chalk.cyan('📊 Keelan Monitor Daemon Status'));
-    console.log(chalk.gray('─'.repeat(40)));
+    console.log(chalk.blue('📊 Let\'s check if the daemon is still serving bestie:'));
+console.log(chalk.gray('─'.repeat(40)));
     
     if (!(await fs.pathExists(pidFile))) {
-      console.log(chalk.red('Status: ❌ Not running'));
-      console.log(chalk.gray(`PID file: ${pidFile} (not found)`));
+      console.log(chalk.red('Status: ❌ Not running (daemon is taking a break bestie)'));
+console.log(chalk.gray(`PID file: ${pidFile} (not found)`));
       return;
     }
     
@@ -215,23 +215,23 @@ async function getDaemonStatus(pidFile: string, logFile: string) {
     const pid = parseInt(pidStr.trim());
     
     if (isNaN(pid)) {
-      console.log(chalk.red('Status: ❌ Invalid PID file'));
+      console.log(chalk.red('Status: ❌ PID file is corrupted bestie'));
       return;
     }
     
     try {
       // Check if process is running
       process.kill(pid, 0);
-      console.log(chalk.green('Status: ✅ Running'));
-      console.log(chalk.gray(`PID: ${pid}`));
-      console.log(chalk.gray(`PID file: ${pidFile}`));
+      console.log(chalk.green('Status: ✅ Running and serving background energy bestie'));
+console.log(chalk.gray(`PID: ${pid} (the process ID)`));
+console.log(chalk.gray(`PID file: ${pidFile}`));
       
       // Show log file info if it exists
       if (await fs.pathExists(logFile)) {
         const stats = await fs.stat(logFile);
         console.log(chalk.gray(`Log file: ${logFile}`));
-        console.log(chalk.gray(`Log size: ${(stats.size / 1024).toFixed(2)} KB`));
-        console.log(chalk.gray(`Last modified: ${stats.mtime.toISOString()}`));
+        console.log(chalk.gray(`Log file: ${logFile} (${stats.size} bytes)`));
+        console.log(chalk.gray(`Last modified: ${stats.mtime.toLocaleString()}`));
         
         // Show last few log lines
         try {
@@ -249,16 +249,16 @@ async function getDaemonStatus(pidFile: string, logFile: string) {
       
     } catch (error: any) {
       if (error.code === 'ESRCH') {
-        console.log(chalk.red('Status: ❌ Not running (stale PID file)'));
-        console.log(chalk.gray(`Stale PID: ${pid}`));
-        console.log(chalk.yellow('💡 Run "keelan daemon stop" to clean up'));
+        console.log(chalk.red('Status: ❌ Not running (process not found bestie)'));
+        console.log(chalk.gray(`PID file: ${pidFile} (stale)`));
+        console.log(chalk.yellow('💡 Run "keelan daemon stop" to clean up this mess bestie'));
       } else {
         throw error;
       }
     }
     
   } catch (error) {
-    console.error(chalk.red('❌ Error checking daemon status:'), error);
+    console.error(chalk.red('❌ Error checking daemon status bestie:'), error);
     process.exit(1);
   }
 }

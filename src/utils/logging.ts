@@ -1,3 +1,5 @@
+import chalk from "chalk";
+
 // ANSI escape codes for cursor manipulation and clearing lines
 const CLEAR_LINE = '\x1b[2K'; // Clears the entire line
 const CURSOR_UP = '\x1b[1A'; // Moves cursor up 1 line
@@ -11,6 +13,22 @@ export class TailLog {
     constructor() {
         this.logBuffer = [];
         console.log("\n"); // This blank line ensures the dynamic content starts below the static text
+    }
+
+    error(message: string) {
+        console.log(chalk.red(`❌ [ERROR] ${message} (and that's not very cash money)`));
+    }
+
+    warn(message: string) {
+        console.log(chalk.yellow(`⚠️  [WARN] ${message} (just a heads up bestie)`));
+    }
+
+    info(message: string) {
+        console.log(chalk.blue(`ℹ️  [INFO] ${message} (no cap)`));
+    }
+
+    success(message: string) {
+        console.log(chalk.green(`✅ [SUCCESS] ${message} (and we love that for us)`));
     }
 
     log(message: string) {

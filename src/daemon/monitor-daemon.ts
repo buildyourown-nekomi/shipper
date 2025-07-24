@@ -544,7 +544,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 
   const daemon = new MonitorDaemon(config);
   daemon.start().catch((error) => {
-    console.error(chalk.red('Failed to start daemon:'), error);
+    console.error(chalk.red('Daemon said "I\'m not starting today bestie" and failed:'), error);
     process.exit(1);
   });
 }
@@ -555,7 +555,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
  */
 function setupProcessMonitoring(child: ChildProcess, shipID: string, pid: number | undefined) {
   if (!pid) {
-    console.error(chalk.red('❌ Failed to get process PID'));
+    console.error(chalk.red('❌ Process PID went missing and that\'s not very cash money bestie'));
     return;
   }
 
@@ -563,9 +563,9 @@ function setupProcessMonitoring(child: ChildProcess, shipID: string, pid: number
   child.on('close', async (code) => {
     try {
       if (code === 0) {
-        console.log(chalk.green(`✅ Process ${pid} completed successfully!`));
+        console.log(chalk.green(`✅ Process ${pid} finished and it\'s giving completion energy bestie!`));
       } else {
-        console.log(chalk.yellow(`⚠️  Process ${pid} exited with code ${code}`));
+        console.log(chalk.yellow(`⚠️  Process ${pid} said bye with exit code ${code} bestie`));
       }
 
       await db.update(keelanShips)
@@ -577,14 +577,14 @@ function setupProcessMonitoring(child: ChildProcess, shipID: string, pid: number
         .where(eq(keelanShips.name, shipID))
         .execute();
     } catch (error) {
-      console.error(chalk.red('❌ Error updating ship status:'), error);
+      console.error(chalk.red('🚨 Ship status update had a moment and failed bestie:'), error);
     }
   });
 
   // Handle process errors
   child.on('error', async (err: any) => {
     try {
-      console.error(chalk.red(`❌ Process ${pid} encountered an error:`, err.message));
+      console.error(chalk.red(`💀 Process ${pid} said "I can't even bestie" and had a moment and crashed:`), err.message);
 
       await db.update(keelanShips)
         .set({
@@ -595,7 +595,7 @@ function setupProcessMonitoring(child: ChildProcess, shipID: string, pid: number
         .where(eq(keelanShips.name, shipID))
         .execute();
     } catch (error) {
-      console.error(chalk.red('❌ Error updating ship status:'), error);
+      console.error(chalk.red('🔥 Ship status update failed and that\'s not very demure bestie:'), error);
     }
   });
 
@@ -667,12 +667,12 @@ async function monitorAllShips() {
             .where(eq(keelanShips.id, ship.id))
             .execute();
 
-          console.log(chalk.yellow(`📋 Updated status for ship ${ship.name}: process ${ship.processId} no longer running`));
+          console.log(chalk.yellow(`📋 Ship ${ship.name} process ${ship.processId} ghosted us bestie (no longer running)`));
         }
       }
     }
   } catch (error) {
-    console.error(chalk.red('❌ Error in background monitoring:'), error);
+    console.error(chalk.red('🚨 Background monitoring had a moment and failed bestie:'), error);
   }
 }
 

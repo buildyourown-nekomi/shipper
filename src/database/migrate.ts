@@ -3,6 +3,7 @@ import Database from 'better-sqlite3';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
+import chalk from 'chalk';
 import { PATHS } from '../constants.js';
 dotenv.config({ quiet: true });
 
@@ -13,7 +14,7 @@ const db = drizzle(sqlite);
 
 // Migration functions
 export async function runMigrations() {
-  console.log('Running migrations...');
+  console.log(chalk.blue('🔄 Running database migrations like we\'re upgrading to the latest version...'));
   
   const migratesql = fs.readFileSync('src/database/migrate.sql', 'utf8');
 
@@ -22,12 +23,12 @@ export async function runMigrations() {
   // Create users table if it doesn't exist
   sqlite.exec(migratesql);
   
-  console.log('Migrations completed successfully');
+  console.log(chalk.green('✅ Database migrations completed and it\'s giving fresh start vibes!'));
 }
 
 // Reset database (for testing)
 export async function resetDatabase() {
-  console.log('Resetting database...');
+  console.log(chalk.yellow('🔄 Time to reset the database like it never existed...'));
   
   // Drop existing tables
   sqlite.exec(`DROP TABLE IF EXISTS users`);
@@ -35,7 +36,7 @@ export async function resetDatabase() {
   // Run migrations again
   await runMigrations();
   
-  console.log('Database reset completed');
+  console.log(chalk.green('✅ Database reset completed and it\'s giving fresh start energy!'));
 }
 
 // Main execution

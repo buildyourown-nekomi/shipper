@@ -60,35 +60,35 @@ const argv = yargs(hideBin(process.argv))
       switch (action) {
         case 'deploy':
           if (!name) {
-            console.error(chalk.red('❌ Ship name is required for deploy'));
+            console.error(chalk.red('❌ Ship name is required bestie - can\'t deploy without knowing what we\'re working with fr'));
             process.exit(1);
           }
           await deployHandler({ name, env });
           break;
         case 'start':
           if (!name) {
-            console.error(chalk.red('❌ Ship name is required for start'));
+            console.error(chalk.red('❌ Ship name is required to start - bestie, we need to know which ship to wake up fr'));
             process.exit(1);
           }
           await startShipHandler({ name, env });
           break;
         case 'stop':
           if (!name) {
-            console.error(chalk.red('❌ Ship name is required for stop'));
+            console.error(chalk.red('❌ Ship name is required to stop - can\'t just stop everything bestie, no cap'));
             process.exit(1);
           }
           await stopShipHandler({ name, force });
           break;
         case 'restart':
           if (!name) {
-            console.error(chalk.red('❌ Ship name is required for restart'));
+            console.error(chalk.red('❌ Ship name is required for restart - fam, which ship needs a fresh start bestie?'));
             process.exit(1);
           }
           await restartShipHandler({ name, env });
           break;
         case 'remove':
           if (!name) {
-            console.error(chalk.red('❌ Ship name is required for remove'));
+            console.error(chalk.red('❌ Ship name is required for remove - bestie, we need to know what\'s getting yeeted fr'));
             process.exit(1);
           }
           await removeShipHandler({ name, force, recursive });
@@ -97,7 +97,7 @@ const argv = yargs(hideBin(process.argv))
           await listShipsHandler();
           break;
         default:
-          console.error(chalk.red(`❌ Unknown ship action: ${action}`));
+          console.error(chalk.red(`❌ That ship action doesn\'t exist bestie, no cap: ${action}`));
           process.exit(1);
       }
     }
@@ -160,7 +160,7 @@ const argv = yargs(hideBin(process.argv))
     (argv) => configHandler(argv as any)
   )
   .command(
-    'crate <action>',
+    'crate <action> [name]',
     'Manage crates (container images)',
     (yargs) => {
       return yargs
@@ -190,13 +190,13 @@ const argv = yargs(hideBin(process.argv))
           break;
         case 'remove':
           if (!name) {
-            console.error(chalk.red('❌ Crate name is required for remove'));
+            console.error(chalk.red('❌ Crate name is required for remove - which crate are we deleting bestie fr?'));
             process.exit(1);
           }
           await removeCrateHandler({ name, force, recursive: false });
           break;
         default:
-          console.error(chalk.red(`❌ Unknown crate action: ${action}`));
+          console.error(chalk.red(`❌ That crate action doesn\'t exist and it\'s giving me secondhand embarrassment bestie: ${action}`));
           process.exit(1);
       }
     }
@@ -227,7 +227,7 @@ const argv = yargs(hideBin(process.argv))
       
       fs.writeFileSync('Keelanfile.yml', KeelanfileContent.trim());
       
-      console.log('✅ Keelanfile.yml created successfully.');
+      console.log('✅ Keelanfile.yml created and it\'s giving fresh project energy bestie!');
     }
   )
 
@@ -251,8 +251,8 @@ const argv = yargs(hideBin(process.argv))
     },
     async (argv) => {
       if (argv.watch) {
-        console.log(`🔍 Starting continuous monitoring (every ${argv.interval} seconds)...`);
-        console.log('Press Ctrl+C to stop monitoring');
+        console.log(`🔍 Starting continuous monitoring like a helicopter parent bestie (every ${argv.interval} seconds)...`);
+        console.log('Press Ctrl+C when you\'re done being nosy - no judgment');
         
         // Run initial check
         await monitorAllShips();
@@ -264,15 +264,15 @@ const argv = yargs(hideBin(process.argv))
         
         // Handle graceful shutdown
         process.on('SIGINT', () => {
-          console.log('\n🛑 Stopping monitor...');
+          console.log('\n🛑 Stopping monitor because you said so - totally valid bestie, no cap...');
           clearInterval(monitorInterval);
           process.exit(0);
         });
       } else {
         // Run one-time check
-        console.log('🔍 Checking all running ships...');
-        await monitorAllShips();
-        console.log('✅ Monitoring check completed');
+        console.log('🔍 Time to check on all our ships like a concerned parent bestie...');
+        await listShipsHandler();
+        console.log('✅ Monitoring check completed and everyone\'s accounted for bestie - no cap');
       }
     }
   )
@@ -342,7 +342,7 @@ const argv = yargs(hideBin(process.argv))
 
 // Handle global options
 if ('verbose' in argv && argv.verbose) {
-  console.log('Verbose mode enabled');
+  console.log('Verbose mode enabled - prepare for TMI bestie, no cap');
 }
 
 if ('quiet' in argv && argv.quiet) {

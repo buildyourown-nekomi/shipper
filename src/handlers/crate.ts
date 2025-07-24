@@ -4,13 +4,15 @@ import { keelanCrate } from '../database/schema.js';
 
 // List crates
 export const listCratesHandler = async () => {
-  console.log(chalk.blue('📦 Crates:'));
+  console.log(chalk.cyan('📦 Listing all crates in the database bestie...'));
   const crates = await db.select().from(keelanCrate);
   
   if (crates.length === 0) {
-    console.log(chalk.gray('  No crates found.'));
+    console.log(chalk.yellow('📦 No crates found in the database bestie.'));
     return;
   }
+  
+  console.log(chalk.green(`📦 Found ${crates.length} crate(s) bestie:`));
   
   for (const crate of crates) {
     console.log(chalk.blue(`- ${crate.name}`));

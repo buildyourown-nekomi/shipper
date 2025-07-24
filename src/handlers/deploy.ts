@@ -29,7 +29,7 @@ export const deployHandler = async (options: DeployOptions) => {
   )
 
   if (!file_data.length) {
-    console.error(chalk.red('❌ Error: Crate not found.'));
+    console.error(chalk.red('❌ Error: Crate not found bestie.'));
     process.exit(1);
   }
 
@@ -39,19 +39,19 @@ export const deployHandler = async (options: DeployOptions) => {
 
   const steps = config.runtime_command || config.runtime_entrypoint;
   if (!steps) {
-    console.error(chalk.red('❌ Error: No "deploy" configuration found in Keelanfile.yml.'));
+    console.error(chalk.red('❌ Error: No "deploy" configuration found in Keelanfile.yml bestie.'));
     process.exit(1);
   }
 
-  console.log(chalk.cyan('🚢 Ready to sail!'));
+  console.log(chalk.cyan('🚢 Ready to sail like we\'re about to conquer the seven seas!'));
 
   // Create ship
   const shipID = makeid(12)
 
   // Reserve space for the ship
-  console.log(chalk.yellow('🔍 Resolving base image layers...'));
+  console.log(chalk.yellow('🔍 Resolving base image layers like we\'re solving a puzzle...'));
   const lowerlayers = await resolveLayer(file_data[0].name);
-  console.log(chalk.green('✅ Successfully resolved'), chalk.cyan(lowerlayers.length), chalk.green('layers'));
+  console.log(chalk.green('✅ Successfully resolved'), chalk.cyan(lowerlayers.length), chalk.green('layers - that\'s giving organized vibes!'));
 
   const upperdir_path = path.join(PATHS.ships, shipID);
 
@@ -62,7 +62,7 @@ export const deployHandler = async (options: DeployOptions) => {
 
   const command_w_chroot = `chroot ${path.join(PATHS.ships, shipID + '_merge')} ${steps.join(' ')}`;
 
-  console.log(chalk.magenta('🚀 Preparing to deploy in crate:'), chalk.cyan(command_w_chroot));
+  console.log(chalk.blue(`🚀 Time to deploy ship ${options.name} and let it sail into the digital ocean like the main character it is...`));
 
   // Ensure the log directory exists
   const logDir = path.join(PATHS.logs, options.name);
@@ -86,16 +86,16 @@ export const deployHandler = async (options: DeployOptions) => {
       client.on('data', (data) => {
         const response = JSON.parse(data.toString());
         if (response.status === 'success') {
-          console.log(chalk.green('✅ Command executed successfully. PID:'), chalk.yellow(response.pid));
+          console.log(chalk.green(`✅ Ship '${options.name}' deployed successfully and it's giving main character energy - ready to sail!`));
         } else {
-          console.error(chalk.red('❌ Deployment failed:'), response.message);
+          console.error(chalk.red(`❌ Ship '${options.name}' deployment hit some rough waters and failed:`), response.message);
         }
         client.end();
         resolve();
       });
 
       client.on('error', (err) => {
-        console.error(chalk.red('❌ Error connecting to daemon via TCP:'), err.message);
+        console.log(chalk.yellow(`⚠️  Ship '${options.name}' is already out there living its best life bestie.`));
         reject(err);
       });
     });
@@ -104,11 +104,11 @@ export const deployHandler = async (options: DeployOptions) => {
   try {
     await connectToDaemon();
   } catch (error) {
-    console.error(chalk.red('❌ Failed to connect to daemon'));
+    console.error(chalk.red('❌ Failed to connect to daemon bestie'));
     process.exit(1);
   }
 
-  console.log(chalk.green('🎉 Deploy initiated!'));
-  console.log(chalk.blue('📊 Monitoring handled by daemon...'));
-  console.log(chalk.gray(`📁 Logs: ${path.join(PATHS.logs, options.name)}/`));
+  console.log(chalk.green('🎉 Deploy initiated bestie!'));
+console.log(chalk.blue('📊 Monitoring handled by daemon bestie...'));
+console.log(chalk.gray(`📁 Logs: ${path.join(PATHS.logs, options.name)}/`));
 };
