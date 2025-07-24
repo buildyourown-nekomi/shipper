@@ -62,21 +62,50 @@ runtime_command: ["python3", "-m", "http.server", "8000"]
 ## ⚙️ Usage
 
 ```bash
-# Build the crate from Keelanfile.yml
-keelan build --name my-app
+# Build a crate from a directory with Keelanfile.yml
+keelan build -w <directory> -n <name>
 
 # Deploy the container (a.k.a. ship)
-keelan deploy --name my-app
+keelan ship deploy <name>
 
 # List all crates and ships
 keelan list
 
 # Remove a crate
-keelan remove-crate my-app
 ```
 
 Each ship runs in its own environment using OverlayFS and `chroot`.  
 It feels like Docker, but runs like native.
+
+---
+
+## 🚀 Get Started
+
+1. Clone this repository:
+   ```bash
+   git clone <repository-url>
+   cd shipper
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+3. Run database migration:
+   ```bash
+   npm run migrate
+   ```
+
+4. Build the project:
+   ```bash
+   npm run build
+   ```
+
+5. Start using Keelan:
+   ```bash
+   npx keelan
+   ```
 
 ---
 
@@ -92,6 +121,7 @@ It feels like Docker, but runs like native.
 ## 🧠 Requirements
 
 - Linux with OverlayFS support
+- Node.js and npm
 - No Docker required. No kernel modules.
 
 ---
