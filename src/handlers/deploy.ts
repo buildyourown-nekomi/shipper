@@ -1,6 +1,6 @@
 import fs from 'fs-extra';
 import * as fs_original from 'fs';
-import { execSync, spawn, spawnSync } from 'child_process';
+import { execSync } from 'child_process';
 import { parse } from 'yaml';
 import chalk from 'chalk';
 import { KeelanParser } from '../keelan-parser.js';
@@ -11,7 +11,9 @@ import { makeid } from '../utils/utils.js';
 import { resolveLayer } from '../core/layer.js';
 import { createDirectory } from '../core/core.js';
 import { createAndMountOverlay } from '../utils/layer.js';
-import { ChildProcess } from 'child_process';
+
+import net from 'net';
+import xpipe from 'xpipe';
 
 // Type definitions for command arguments
 interface DeployOptions {
@@ -59,175 +61,81 @@ export const deployHandler = async (options: DeployOptions) => {
 
   const command_w_chroot = `chroot ${process.env.BASE_DIRECTORY}/ships/${shipID}_merge ${steps.join(' ')}`;
 
-  console.log(chalk.magenta('🚀 Running command in crate:'), chalk.cyan(command_w_chroot));
+  console.log(chalk.magenta('🚀 Preparing to deploy in crate:'), chalk.cyan(command_w_chroot));
 
   // Ensure the log directory exists
   const logDir = `${process.env.BASE_DIRECTORY}/logs/${options.name}`;
   await fs.ensureDir(logDir);
 
-  const out = fs.openSync(`${logDir}/out.log`, 'a');
-  const err = fs.openSync(`${logDir}/err.log`, 'a');
+  // Connect to daemon via named pipe, fallback to TCP if not supported
+  const connectToDaemon = () => {
+    return new Promise<void>((resolve, reject) => {
+      const message = {
+        type: 'deploy',
+        shipID,
+        command: command_w_chroot,
+        logDir,
+        imageId: file_data[0].id
+      };
 
-  // Spawn the process with detached option for proper background execution
-  const child = spawn(command_w_chroot, { 
-    shell: true, 
-    stdio: ['ignore', out, err],
-    detached: true,  // This allows the process to run independently
-    windowsHide: true  // Hide console window on Windows
-  });
-  
-  const pid = child.pid;
+      // Try named pipe first
+      const pipePath = xpipe.eq('keelan-daemon');
+      const client = net.createConnection(pipePath, () => {
+        client.write(JSON.stringify(message));
+      });
 
-  console.log(chalk.green('✅ Command executed successfully. PID:'), chalk.yellow(pid));
+      client.on('data', (data) => {
+        const response = JSON.parse(data.toString());
+        if (response.status === 'success') {
+          console.log(chalk.green('✅ Command executed successfully. PID:'), chalk.yellow(response.pid));
+        } else {
+          console.error(chalk.red('❌ Deployment failed:'), response.message);
+        }
+        client.end();
+        resolve();
+      });
 
-  // Insert ship record into database
-  await db.insert(keelanShips)
-    .values({
-      name: shipID,
-      imageId: file_data[0].id,
-      processId: pid,
-      status: "running",
-      startedAt: new Date().toISOString(),
-      stoppedAt: null,
-      exitCode: null
-    }).returning();
+      client.on('error', (err: any) => {
+        if (err.code === 'ENOTSUP' || err.code === 'ENOTFOUND' || err.code === 'ENOENT') {
+          console.log(chalk.yellow('⚠️  Named pipe not available, trying TCP connection...'));
+          client.destroy();
+          
+          // Fallback to TCP
+          const tcpClient = net.createConnection(9876, 'localhost', () => {
+            tcpClient.write(JSON.stringify(message));
+          });
 
-  // Set up process monitoring in background
-  setupProcessMonitoring(child, shipID, pid);
-  
-  // Detach the child process from the parent
-  child.unref();
+          tcpClient.on('data', (data) => {
+            const response = JSON.parse(data.toString());
+            if (response.status === 'success') {
+              console.log(chalk.green('✅ Command executed successfully. PID:'), chalk.yellow(response.pid));
+            } else {
+              console.error(chalk.red('❌ Deployment failed:'), response.message);
+            }
+            tcpClient.end();
+            resolve();
+          });
 
-  console.log(chalk.green('🎉 Deploy completed successfully!'));
-  console.log(chalk.blue('📊 Monitoring deployment...'));
+          tcpClient.on('error', (tcpErr) => {
+            console.error(chalk.red('❌ Error connecting to daemon via TCP:'), tcpErr.message);
+            reject(tcpErr);
+          });
+        } else {
+          console.error(chalk.red('❌ Error connecting to daemon:'), err.message);
+          reject(err);
+        }
+      });
+    });
+  };
+
+  try {
+    await connectToDaemon();
+  } catch (error) {
+    console.error(chalk.red('❌ Failed to connect to daemon'));
+    process.exit(1);
+  }
+
+  console.log(chalk.green('🎉 Deploy initiated!'));
+  console.log(chalk.blue('📊 Monitoring handled by daemon...'));
   console.log(chalk.gray(`📁 Logs: ${process.env.BASE_DIRECTORY}/logs/${options.name}/`));
 };
-
-/**
- * Sets up background process monitoring for a detached child process
- * This allows the CLI to exit while still tracking the process lifecycle
- */
-export function setupProcessMonitoring(child: ChildProcess, shipID: string, pid: number | undefined) {
-  if (!pid) {
-    console.error(chalk.red('❌ Failed to get process PID'));
-    return;
-  }
-
-  // Handle process completion
-  child.on('close', async (code) => {
-    try {
-      if (code === 0) {
-        console.log(chalk.green(`✅ Process ${pid} completed successfully!`));
-      } else {
-        console.log(chalk.yellow(`⚠️  Process ${pid} exited with code ${code}`));
-      }
-      
-      await db.update(keelanShips)
-        .set({
-          status: "stopped",
-          stoppedAt: new Date().toISOString(),
-          exitCode: code
-        })
-        .where(eq(keelanShips.name, shipID))
-        .execute();
-    } catch (error) {
-      console.error(chalk.red('❌ Error updating ship status:'), error);
-    }
-  });
-
-  // Handle process errors
-  child.on('error', async (err: any) => {
-    try {
-      console.error(chalk.red(`❌ Process ${pid} encountered an error:`, err.message));
-      
-      await db.update(keelanShips)
-        .set({
-          status: "error",
-          stoppedAt: new Date().toISOString(),
-          exitCode: err.code || -1
-        })
-        .where(eq(keelanShips.name, shipID))
-        .execute();
-    } catch (error) {
-      console.error(chalk.red('❌ Error updating ship status:'), error);
-    }
-  });
-
-  // Optional: Set up periodic health checks
-  const healthCheckInterval = setInterval(async () => {
-    try {
-      // Check if process is still running using the PID
-      const isRunning = await isProcessRunning(pid);
-      
-      if (!isRunning) {
-        // Process died without triggering close event
-        await db.update(keelanShips)
-          .set({
-            status: "stopped",
-            stoppedAt: new Date().toISOString(),
-            exitCode: null
-          })
-          .where(eq(keelanShips.name, shipID))
-          .execute();
-        
-        clearInterval(healthCheckInterval);
-      }
-    } catch (error) {
-      // Ignore errors in health check to avoid spam
-    }
-  }, 30000); // Check every 30 seconds
-
-  // Clean up interval when process ends
-  child.on('close', () => {
-    clearInterval(healthCheckInterval);
-  });
-}
-
-/**
- * Check if a process is still running by PID
- */
-async function isProcessRunning(pid: number): Promise<boolean> {
-  try {
-    // On Unix-like systems, sending signal 0 checks if process exists
-    process.kill(pid, 0);
-    return true;
-  } catch (error: any) {
-    // ESRCH means process doesn't exist
-    return error.code !== 'ESRCH';
-  }
-}
-
-/**
- * Background monitoring engine that can run independently
- * This function can be called periodically to check all running ships
- */
-export async function monitorAllShips() {
-  try {
-    const runningShips = await db.select()
-      .from(keelanShips)
-      .where(eq(keelanShips.status, "running"))
-      .execute();
-
-    for (const ship of runningShips) {
-      if (ship.processId) {
-        const isRunning = await isProcessRunning(ship.processId);
-        
-        if (!isRunning) {
-          // Update ship status if process is no longer running
-          await db.update(keelanShips)
-            .set({
-              status: "stopped",
-              stoppedAt: new Date().toISOString(),
-              exitCode: null
-            })
-            .where(eq(keelanShips.id, ship.id))
-            .execute();
-          
-          console.log(chalk.yellow(`📋 Updated status for ship ${ship.name}: process ${ship.processId} no longer running`));
-        }
-      }
-    }
-  } catch (error) {
-    console.error(chalk.red('❌ Error in background monitoring:'), error);
-  }
-}

@@ -3,16 +3,17 @@ import { hideBin } from 'yargs/helpers';
 import fs from 'fs-extra';
 import chalk from 'chalk';
 import load_env from 'dotenv';
-load_env.config();
+load_env.config({ quiet: true });
 
 // Import handler functions from their respective modules
 import { buildHandler } from './handlers/build.js';
-import { deployHandler, monitorAllShips } from './handlers/deploy.js';
+import { deployHandler } from './handlers/deploy.js';
 import { configHandler } from './handlers/config.js';
 import { removeCrateHandler, removeShipHandler } from './handlers/remove.js';
 import { daemonHandler } from './handlers/daemon.js';
 import { startShipHandler, stopShipHandler, restartShipHandler, listShipsHandler } from './handlers/ship.js';
 import { listCratesHandler } from './handlers/crate.js';
+import { monitorAllShips } from './daemon/monitor-daemon.js';
 
 // CLI setup
 const argv = yargs(hideBin(process.argv))

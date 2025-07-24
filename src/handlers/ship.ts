@@ -106,6 +106,10 @@ export const startShipHandler = async (options: StartShipOptions) => {
     
     const pid = child.pid;
     
+    // Close file descriptors in parent process to prevent resource leaks
+    fs.closeSync(out);
+    fs.closeSync(err);
+    
     if (!pid) {
       console.error(chalk.red('❌ Failed to start ship process'));
       process.exit(1);

@@ -22,6 +22,7 @@
     "fs-extra": "^11.3.0",
     "sha256": "^0.2.0",
     "tar": "^7.4.3",
+    "xpipe": "^1.0.8",
     "yaml": "^2.8.0"
   },
   "devDependencies": {

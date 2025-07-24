@@ -2,7 +2,7 @@ import { drizzle } from 'drizzle-orm/better-sqlite3';
 import Database from 'better-sqlite3';
 import fs from 'fs';
 import load_env from 'dotenv';
-load_env.config();
+load_env.config({ quiet: true });
 
 // Initialize database
 fs.mkdirSync(process.env.BASE_DIRECTORY + '/database', { recursive: true });

@@ -11,15 +11,21 @@
  *   node monitor-daemon.js [--interval=30] [--log-file=monitor.log]
  */
 
-import { monitorAllShips } from '../handlers/deploy.js';
+
 import chalk from 'chalk';
+import { db } from '../database/db.js';
+import { keelanShips } from '../database/schema.js';
+import { spawn, ChildProcess } from 'child_process';
 import fs from 'fs-extra';
+import net from 'net';
+import dotenv from 'dotenv';
 import path from 'path';
-import load_env from 'dotenv';
+import { eq } from 'drizzle-orm';
 import { parseArgs } from 'util';
+import xpipe from 'xpipe';
 
 // Load environment variables
-load_env.config();
+dotenv.config({ quiet: true });
 
 // Configuration
 interface DaemonConfig {
@@ -33,6 +39,7 @@ class MonitorDaemon {
   private monitorInterval?: NodeJS.Timeout;
   private isRunning = false;
   private logStream?: fs.WriteStream;
+  private socketServer?: net.Server;
 
   constructor(config: DaemonConfig) {
     this.config = config;
@@ -144,6 +151,7 @@ class MonitorDaemon {
     }, this.config.interval * 1000);
     
     this.log('Monitor daemon started successfully');
+    this.setupSocketServer();
   }
 
   private async runMonitoringCycle() {
@@ -154,6 +162,77 @@ class MonitorDaemon {
     } catch (error) {
       this.log(`Error in monitoring cycle: ${error}`, 'ERROR');
     }
+  }
+
+  private handleSocketData = async (socket: net.Socket, data: Buffer) => {
+    try {
+      const message = JSON.parse(data.toString());
+      if (message.type === 'deploy') {
+        const { shipID, command, logDir } = message;
+        await fs.ensureDir(logDir);
+        const out = fs.openSync(`${logDir}/out.log`, 'a');
+        const err = fs.openSync(`${logDir}/err.log`, 'a');
+        const child = spawn(command, { 
+          shell: true, 
+          stdio: ['ignore', out, err],
+          detached: true,
+          windowsHide: true 
+        });
+        const pid = child.pid;
+        fs.closeSync(out);
+        fs.closeSync(err);
+        await db.insert(keelanShips).values({
+          name: shipID,
+          imageId: message.imageId,
+          processId: pid,
+          status: "running",
+          startedAt: new Date().toISOString(),
+          stoppedAt: null,
+          exitCode: null
+        });
+        setupProcessMonitoring(child, shipID, pid);
+        socket.write(JSON.stringify({ status: 'success', pid }));
+      }
+    } catch (error: any) {
+      socket.write(JSON.stringify({ status: 'error', message: error.message }));
+    }
+  };
+
+  private createSocketServer(): net.Server {
+    return net.createServer((socket) => {
+      socket.on('data', (data) => this.handleSocketData(socket, data));
+    });
+  }
+
+  private setupSocketServer() {
+    // Try named pipes first, fallback to TCP if not supported (e.g., WSL2)
+    const pipePath = xpipe.eq('keelan-daemon');
+    this.socketServer = this.createSocketServer();
+    
+    // Try named pipe first
+    this.socketServer.listen(pipePath, () => {
+      this.log(`Socket server listening on named pipe: ${pipePath}`);
+    });
+    
+    // Handle named pipe errors (e.g., WSL2 doesn't support them)
+    this.socketServer.on('error', (error: any) => {
+      if (error.code === 'ENOTSUP' || error.code === 'ENOTFOUND') {
+        this.log('Named pipes not supported, falling back to TCP socket on port 9876', 'WARN');
+        // Close the failed server
+        this.socketServer?.close();
+        
+        // Create new TCP server with the same handler
+        this.socketServer = this.createSocketServer();
+        
+        // Listen on TCP port
+        this.socketServer.listen(9876, 'localhost', () => {
+          this.log('Socket server listening on TCP port 9876');
+        });
+      } else {
+        this.log(`Socket server error: ${error.message}`, 'ERROR');
+        throw error;
+      }
+    });
   }
 
   async stop() {
@@ -179,6 +258,11 @@ class MonitorDaemon {
     await this.removePidFile();
     
     this.log('Monitor daemon stopped');
+    if (this.socketServer) {
+      if (this.socketServer.listening) {
+        this.socketServer.close();
+      }
+    }
     process.exit(0);
   }
 }
@@ -263,4 +347,133 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   });
 }
 
-export { MonitorDaemon };
+/**
+ * Sets up background process monitoring for a detached child process
+ * This allows the CLI to exit while still tracking the process lifecycle
+ */
+function setupProcessMonitoring(child: ChildProcess, shipID: string, pid: number | undefined) {
+  if (!pid) {
+    console.error(chalk.red('❌ Failed to get process PID'));
+    return;
+  }
+
+  // Handle process completion
+  child.on('close', async (code) => {
+    try {
+      if (code === 0) {
+        console.log(chalk.green(`✅ Process ${pid} completed successfully!`));
+      } else {
+        console.log(chalk.yellow(`⚠️  Process ${pid} exited with code ${code}`));
+      }
+      
+      await db.update(keelanShips)
+        .set({
+          status: "stopped",
+          stoppedAt: new Date().toISOString(),
+          exitCode: code
+        })
+        .where(eq(keelanShips.name, shipID))
+        .execute();
+    } catch (error) {
+      console.error(chalk.red('❌ Error updating ship status:'), error);
+    }
+  });
+
+  // Handle process errors
+  child.on('error', async (err: any) => {
+    try {
+      console.error(chalk.red(`❌ Process ${pid} encountered an error:`, err.message));
+      
+      await db.update(keelanShips)
+        .set({
+          status: "error",
+          stoppedAt: new Date().toISOString(),
+          exitCode: err.code || -1
+        })
+        .where(eq(keelanShips.name, shipID))
+        .execute();
+    } catch (error) {
+      console.error(chalk.red('❌ Error updating ship status:'), error);
+    }
+  });
+
+  // Optional: Set up periodic health checks
+  const healthCheckInterval = setInterval(async () => {
+    try {
+      // Check if process is still running using the PID
+      const isRunning = await isProcessRunning(pid);
+      
+      if (!isRunning) {
+        // Process died without triggering close event
+        await db.update(keelanShips)
+          .set({
+            status: "stopped",
+            stoppedAt: new Date().toISOString(),
+            exitCode: null
+          })
+          .where(eq(keelanShips.name, shipID))
+          .execute();
+        
+        clearInterval(healthCheckInterval);
+      }
+    } catch (error) {
+      // Ignore errors in health check to avoid spam
+    }
+  }, 30000); // Check every 30 seconds
+
+  // Clean up interval when process ends
+  child.on('close', () => {
+    clearInterval(healthCheckInterval);
+  });
+}
+
+/**
+ * Check if a process is still running by PID
+ */
+async function isProcessRunning(pid: number): Promise<boolean> {
+  try {
+    // On Unix-like systems, sending signal 0 checks if process exists
+    process.kill(pid, 0);
+    return true;
+  } catch (error: any) {
+    // ESRCH means process doesn't exist
+    return error.code !== 'ESRCH';
+  }
+}
+
+/**
+ * Background monitoring engine that can run independently
+ * This function can be called periodically to check all running ships
+ */
+async function monitorAllShips() {
+  try {
+    const runningShips = await db.select()
+      .from(keelanShips)
+      .where(eq(keelanShips.status, "running"))
+      .execute();
+
+    for (const ship of runningShips) {
+      if (ship.processId) {
+        const isRunning = await isProcessRunning(ship.processId);
+        
+        if (!isRunning) {
+          // Update ship status if process is no longer running
+          await db.update(keelanShips)
+            .set({
+              status: "stopped",
+              stoppedAt: new Date().toISOString(),
+              exitCode: null
+            })
+            .where(eq(keelanShips.id, ship.id))
+            .execute();
+          
+          console.log(chalk.yellow(`📋 Updated status for ship ${ship.name}: process ${ship.processId} no longer running`));
+        }
+      }
+    }
+  } catch (error) {
+    console.error(chalk.red('❌ Error in background monitoring:'), error);
+  }
+}
+
+export { MonitorDaemon, monitorAllShips };

@@ -5,7 +5,7 @@ import sha256 from "sha256";
 import { eq } from "drizzle-orm";
 import load_env from "dotenv";
 import chalk from "chalk";
-load_env.config();
+load_env.config({ quiet: true });
 
 export function createDirectory(path: string): void {
     console.log(chalk.blue(`📁 Creating directory: ${path}`));
