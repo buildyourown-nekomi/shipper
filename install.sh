@@ -1,16 +1,16 @@
 #!/bin/bash
 
 # Update package lists
-sudo apt update
+apt update
 
 # Install debootstrap
-sudo apt-get install -y debootstrap
+apt-get install -y debootstrap
 
 # Init filesystem in lowerdir
-sudo debootstrap --arch=amd64 stable /var/lib/keelan/crates/debian http://deb.debian.org/debian/
+debootstrap --arch=amd64 stable /var/lib/keelan/crates/debian http://deb.debian.org/debian/
 
 # Install coreutils just in case
-sudo apt install -y coreutils
+apt install -y coreutils build-essential python3 g++
 
 echo "Installing Keelan..."
 # Run npm install, migrate and build
@@ -19,7 +19,7 @@ npm run migrate
 npm run build
 
 # Install keelan
-sudo npm install -g .
+npm install -g .
 
 echo "✅ Keelan CLI installed globally. Run with: keelan"
 
@@ -34,7 +34,7 @@ KEELAN_PATH=$(which keelan)
 
 echo "Keelan path: $KEELAN_PATH"
 
-sudo bash -c "cat > $SERVICE_FILE" <<EOF
+bash -c "cat > $SERVICE_FILE" <<EOF
 [Unit]
 Description=Keelan Container Engine
 After=network.target
@@ -52,11 +52,11 @@ EOF
 
 echo "System service created: $SERVICE_FILE"
 echo "Reloading systemd daemon..."
-sudo systemctl daemon-reload
+systemctl daemon-reload
 echo "Enabling Keelan service..."
-sudo systemctl enable "$SERVICE_NAME"
+systemctl enable "$SERVICE_NAME"
 echo "Starting Keelan service..."
-sudo systemctl start "$SERVICE_NAME"
+systemctl start "$SERVICE_NAME"
 
 echo
 echo "🎉 Try running:"

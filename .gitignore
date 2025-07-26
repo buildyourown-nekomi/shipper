@@ -68,5 +68,3 @@ Release/
 
 # TypeScript cache
 *.tsbuildinfo
-
-.continue

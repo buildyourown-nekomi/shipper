@@ -111,7 +111,9 @@ It feels like Docker, but runs like native.
 ## 🧠 Requirements
 
 - Linux with OverlayFS support
-- Node.js and npm
+- Node.js 22+ and npm (recommended: Node.js 22, Node.js 24 has known issues with better-mysql3)
+- **Must run on bare metal** (not inside Docker, chroot, or proot environments)
+- **Root privileges required** for all commands
 - No Docker required. No kernel modules.
 
 ---

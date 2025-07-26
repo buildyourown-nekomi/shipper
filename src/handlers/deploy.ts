@@ -109,6 +109,6 @@ export const deployHandler = async (options: DeployOptions) => {
   }
 
   console.log(chalk.green('🎉 Deploy initiated bestie!'));
-console.log(chalk.blue('📊 Monitoring handled by daemon bestie...'));
-console.log(chalk.gray(`📁 Logs: ${path.join(PATHS.logs, options.name)}/`));
+  console.log(chalk.blue('📊 Monitoring handled by daemon bestie...'));
+  console.log(chalk.gray(`📁 Logs: ${path.join(PATHS.logs, options.name)}/`));
 };
